@@ -1,0 +1,8 @@
+# Caddy, in front of the app. Everything (the page, /api/map, /api/cover, /api/health)
+# goes to the Python server on port 8000 inside Docker's network.
+# SITE_ADDRESS is a domain name (HTTPS, automatic certificate), or ":80" for plain HTTP
+# on a machine without a domain.
+{$SITE_ADDRESS} {
+	encode gzip
+	reverse_proxy app:8000
+}

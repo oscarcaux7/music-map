@@ -446,6 +446,12 @@ function frame(time) {
   requestAnimationFrame(frame);
 }
 
+// Coming back to the page (another tab, the phone unlocked): ask for the new plays now,
+// instead of waiting for the next minute. The server's cache still protects Last.fm.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.data && Date.now() - state.receivedAt > 15_000) load();
+});
+
 new ResizeObserver(() => {
   scene.resize();
   if (state.L) scene.setLayout(state.L);

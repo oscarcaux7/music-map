@@ -40,7 +40,7 @@ Sous le dessin, la période en quelques chiffres (`web/stats.js`) : écoutes, te
 ## Le chemin d'une requête
 
 1. Le navigateur demande `/api/map` à **mon** serveur. Jamais Last.fm.
-2. Le serveur regarde son cache : si la réponse a moins de 120 s, il la renvoie (`X-Cache: hit`).
+2. Le serveur regarde son cache : si la réponse a moins de 60 s, il la renvoie (`X-Cache: hit`).
 3. Sinon il appelle `user.getRecentTracks` (`X-Cache: miss`), garde la réponse en mémoire et sur disque.
 4. Pour les artistes nouveaux seulement, il demande leurs tags (`artist.getTopTags`) et leurs artistes proches (`artist.getSimilar`), gardés 14 jours.
 5. Il renvoie un JSON : styles, artistes, écoutes, artistes proches. Les pochettes ont un identifiant, et le navigateur les demande à `/api/cover/<id>`.

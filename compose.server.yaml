@@ -1,0 +1,30 @@
+# On the server only, on top of compose.yaml:
+#   docker compose -f compose.yaml -f compose.server.yaml up -d --build
+#
+# The app publishes no port any more: only Caddy faces the internet, on 80 and 443.
+# Caddy gets and renews the HTTPS certificate by itself, and keeps it in a volume.
+# The address of the site comes from SITE_ADDRESS in .env (see .env.example), so the
+# same files run on any machine.
+services:
+  app:
+    ports: !reset []
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-student02.wt.thomasjuldo.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data       # the certificates: kept across restarts
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy-data:
+  caddy-config:

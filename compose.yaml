@@ -8,7 +8,7 @@ services:
       LASTFM_API_KEY: ${LASTFM_API_KEY:-}
       LASTFM_USER: ${LASTFM_USER:-}
       DEMO: ${DEMO:-}
-      RECENT_TTL: ${RECENT_TTL:-120}
+      RECENT_TTL: ${RECENT_TTL:-60}
       LASTFM_API_ROOT: ${LASTFM_API_ROOT:-https://ws.audioscrobbler.com/2.0/}
     volumes:
       - music-data:/data   # the last answer, the styles and the covers survive a restart

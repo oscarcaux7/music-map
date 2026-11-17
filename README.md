@@ -1,5 +1,7 @@
 # The map of my plays
 
+**Online: https://student02.wt.thomasjuldo.com**
+
 My recent music from Last.fm, drawn two ways, with a "wrapped" of the period underneath. Buttons switch between them.
 
 **Spiral** (after the timeline poster of the HfG Schwäbisch Gmünd)
@@ -43,10 +45,41 @@ docker compose up --build
 
 - `LASTFM_API_KEY`: create one at https://www.last.fm/api/account/create
 - `LASTFM_USER`: your Last.fm user name
-- `RECENT_TTL` (optional): seconds during which the server reuses Last.fm's answer, 120 by default
+- `RECENT_TTL` (optional): seconds during which the server reuses Last.fm's answer, 60 by default
 - `DEMO=1` (optional): fake data, no call to Last.fm
 
 `.env` is in `.gitignore`: the key never goes to GitHub.
+
+## Online
+
+The site runs on my practice server (Ubuntu, Docker), at https://student02.wt.thomasjuldo.com.
+
+```
+internet ──► Caddy (ports 80 and 443, HTTPS certificate) ──► app (port 8000, not published) ──► Last.fm
+```
+
+- `compose.server.yaml` is added on top of `compose.yaml` on the server only: the app publishes no port, Caddy is the only service facing the internet, both restart by themselves (`restart: unless-stopped`), and Caddy keeps its certificates in a volume.
+- `Caddyfile` sends every request to the app. The address comes from `SITE_ADDRESS` in `.env`.
+- The key is only in `.env` on the server, written by hand, never in Git.
+
+Start it on the server (the first time):
+
+```bash
+git clone https://github.com/oscarcaux7/music-map.git
+cd music-map
+nano .env            # LASTFM_API_KEY, LASTFM_USER, SITE_ADDRESS (see .env.example)
+docker compose -f compose.yaml -f compose.server.yaml up -d --build
+```
+
+**How a change goes online:** I change the code on my laptop, commit and push to GitHub; then on the server:
+
+```bash
+cd music-map && git pull && docker compose -f compose.yaml -f compose.server.yaml up -d --build
+```
+
+**If the server goes down,** the same commands run on any machine with Docker: clone, write `.env`, start. Nothing else needs saving: Last.fm is the source of the data, and the volume only holds a cache (the last answer, the styles, the covers) and Caddy's certificates, which come back by themselves. With a domain pointing to the new machine, put it in `SITE_ADDRESS` and Caddy gets a new certificate; without one, `SITE_ADDRESS=:80` serves the site in plain HTTP on the machine's address. On a laptop, `docker compose up` alone is enough (http://localhost:8080).
+
+**After a scrobble** (FastScrobbler, Spotify, any app connected to Last.fm): the app sends the song to Last.fm, my server asks Last.fm again once its cache is older than `RECENT_TTL` (60 s), and the page asks my server every minute, and as soon as I come back to it. So a new song shows within about a minute, and the song playing now shows at the top of the spiral. There is no database of my own to update: Last.fm is the database, my server only keeps a copy for a short time.
 
 ## How it works
 

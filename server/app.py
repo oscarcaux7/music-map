@@ -56,7 +56,7 @@ def make_service():
         log.info("Last.fm mode for user %s", user)
     return MapService(
         client, user, DATA_DIR,
-        recent_ttl=int(os.environ.get("RECENT_TTL", "120")),
+        recent_ttl=int(os.environ.get("RECENT_TTL", "60")),
         tags_ttl=int(os.environ.get("TAGS_TTL_DAYS", "14")) * 86400,
     )
 
