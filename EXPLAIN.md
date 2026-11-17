@@ -15,7 +15,6 @@ Inspirations : l'affiche « Interaktionsgestaltung » de la HfG Schwäbisch Gmü
 | pochette | une écoute ; plus l'artiste est écouté, plus elle est grande | `drawSpiral` dans `web/scene.js` |
 | drapeau | début d'un tour (`Tue 17`, `14:30`) ; dans « All », la durée d'un tour s'adapte pour étaler les écoutes sur environ 8 tours | `marks` dans `buildSpiral` |
 | fils verticaux | de chaque pochette au tour du dessous, comme sur l'affiche | `drawSpiral` |
-| faisceaux qui se croisent au centre | les écoutes d'un même style, tirées vers un point de l'axe | `foci` dans `buildSpiral` |
 | courbes entre pochettes | deux écoutes d'artistes qui partagent des tags Last.fm (3 par écoute) ; la courbe passe par l'axe, pour rester visible même entre deux pochettes voisines | `corr` dans `buildSpiral` |
 | rond au bout du ruban, `NOW` | maintenant ; avec la pochette qui joue (`nowplaying`), si une chanson joue | `drawNowSpiral` |
 

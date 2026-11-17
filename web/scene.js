@@ -302,21 +302,6 @@ export class Scene {
         this.corr.push([t, this.tiles[j]]);
       });
     });
-    //   every play of a style is pulled towards one point on the axis of the spiral:
-    //   the bundles cross in the middle, like the X-shaped knots of the poster
-    const sums = new Map();
-    for (const t of this.tiles) {
-      const f = t.artist?.family || "autre";
-      const e = sums.get(f) || { u: 0, n: 0 };
-      e.u += t.u; e.n += 1;
-      sums.set(f, e);
-    }
-    //   one knot per style, on the axis: ordered by when I listened to that style, and spread
-    //   evenly down the spiral so that two knots never sit on top of each other
-    const order = [...sums].sort((a, b) => a[1].u / a[1].n - b[1].u / b[1].n).map(([f]) => f);
-    const lo = Math.min(0.4, this.sp.turns * 0.15);
-    const hi = Math.max(lo, this.sp.turns - lo);
-    this.foci = new Map(order.map((f, i) => [f, order.length === 1 ? (lo + hi) / 2 : lo + ((hi - lo) * i) / (order.length - 1)]));
   }
 
   /**
@@ -486,14 +471,6 @@ export class Scene {
       ctx.lineTo(below[0], below[1]);
     }
     ctx.stroke();
-    //   plays of the same style, pulled to their point on the axis
-    //   (in the colour of the style, so each line says where it goes)
-    for (const t of this.tiles) {
-      const fam = t.artist?.family || "autre";
-      const u = this.foci.get(fam);
-      ctx.strokeStyle = rgba(COLORS[fam] || COLORS.autre, Math.min(0.8, 0.3 * fade(t)));
-      ctx.beginPath(); ctx.moveTo(t.sx, t.sy); ctx.lineTo(axisX, axisY(u)); ctx.stroke();
-    }
     //   plays of artists that share tags
     ctx.lineWidth = 0.7;
     for (const [a, b] of this.corr) {
@@ -570,30 +547,6 @@ export class Scene {
       ctx.stroke();
       for (const t of mine) this.drawTile(t, true);
     }
-
-    // the style knots: where the bundles of each style meet, on the axis of the spiral
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "left";
-    ctx.font = `700 ${Math.round(10 * Math.max(0.9, k))}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    for (const [fam, u] of this.foci) {
-      const x = axisX;
-      const y = axisY(u);
-      const on = !this.focusFamily || this.focusFamily === fam;
-      ctx.globalAlpha = on ? 1 : 0.25;
-      ctx.fillStyle = COLORS[fam] || COLORS.autre;
-      ctx.beginPath(); ctx.arc(x, y, 4.5 * k, 0, TAU); ctx.fill();
-      ctx.strokeStyle = this.t.ink;
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(x, y, 7 * k, 0, TAU); ctx.stroke();
-      const label = (this.L.sectorOf.get(fam)?.label || fam).toUpperCase();
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = `rgba(${this.t.paper}, 0.85)`;
-      ctx.strokeText(label, x + 11 * k, y);
-      ctx.fillStyle = COLORS[fam] || COLORS.autre;
-      ctx.fillText(label, x + 11 * k, y);
-    }
-    ctx.globalAlpha = 1;
 
     this.drawNowSpiral(top, time, animate);
   }
