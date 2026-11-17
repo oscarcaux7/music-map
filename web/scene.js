@@ -65,6 +65,8 @@ export class Scene {
     this.cam = null;           // { rot, pitch }: where the camera is flying to
     this.stretch = 1;          // spiral: 1 = as fitted; less = a tight coil, more = stretched downwards
     this.stretchTarget = 1;
+    this.spread = 1;           // sphere: 1 = as built; more = the starbursts open and the globe grows
+    this.spreadTarget = 1;
     this.resize();
   }
 
@@ -131,6 +133,11 @@ export class Scene {
     // the spiral stretches like a spring, smoothly, towards the slider's value
     if (Math.abs(this.stretchTarget - this.stretch) > 1e-3) {
       this.stretch += (this.stretchTarget - this.stretch) * (smooth ? 1 - Math.exp(-dt * 5) : 1);
+      moving = true;
+    }
+    // the sphere spreads the same way
+    if (Math.abs(this.spreadTarget - this.spread) > 1e-3) {
+      this.spread += (this.spreadTarget - this.spread) * (smooth ? 1 - Math.exp(-dt * 5) : 1);
       moving = true;
     }
     if (this.cam) {
@@ -674,7 +681,7 @@ export class Scene {
         const ang = j * GOLDEN + hash01(artist.id) * 0.6;
         const rho = cap * Math.sqrt((j + 0.6) / (members.length + 0.6));
         const adir = norm(add(dir, add(scale(e1, Math.cos(ang) * rho), scale(e2, Math.sin(ang) * rho))));
-        const an = { kind: "artist", artist, family: sector.id, p: scale(adir, 0.86), dir: adir };
+        const an = { kind: "artist", artist, family: sector.id, p: scale(adir, 0.86), dir: adir, hubDir: dir };
         nodes.push(an);
         artistNodes.set(artist.id, an);
         edges.push({ a: hub, b: an, kind: "tree", family: sector.id, artist: artist.id });
@@ -777,6 +784,16 @@ export class Scene {
       const mid = norm(add(arc.a.dir, arc.b.dir));
       arc.ctrl = { p: scale(mid, 1.05 + 0.15 * (1 - (arc.m || 0))) };
     }
+    // for the spread slider: each leaf remembers its artist and where it sits from it
+    for (const node of nodes) {
+      node.p0 = node.p;
+      if (node.artist && node.kind !== "artist") {
+        const an = artistNodes.get(node.artist.id);
+        node.anchor = an;
+        node.off = [node.p[0] - an.p[0], node.p[1] - an.p[1], node.p[2] - an.p[2]];
+      }
+    }
+    for (const arc of arcs) arc.ctrl.p0 = arc.ctrl.p;
     this.graph = { nodes, edges, artistNodes, root, arcs, bridges, leafCount };
   }
 
@@ -802,8 +819,26 @@ export class Scene {
     this.sphereCy = this.h / 2 + 16;
     const t = animate ? time : 0;
     const g = this.graph;
-    for (const node of g.nodes) node.s = this.sphereProject(node.p, t);
-    for (const arc of g.arcs) arc.ctrl.s = this.sphereProject(arc.ctrl.p, t);
+    // spread, inside a globe that keeps its size: the artists of a style move apart around
+    // the surface (away from the direction of their style), and each starburst opens wider
+    const sp = this.spread;
+    for (const an of g.artistNodes.values()) {
+      const h = an.hubDir;
+      const d = norm([h[0] + (an.dir[0] - h[0]) * sp, h[1] + (an.dir[1] - h[1]) * sp, h[2] + (an.dir[2] - h[2]) * sp]);
+      an.p = scale(d, 0.86);
+    }
+    for (const node of g.nodes) {
+      if (node.kind === "artist") { node.s = this.sphereProject(node.p, t); continue; }
+      node.p = node.anchor
+        ? [node.anchor.p[0] + node.off[0] * sp, node.anchor.p[1] + node.off[1] * sp, node.anchor.p[2] + node.off[2] * sp]
+        : node.p0;
+      node.s = this.sphereProject(node.p, t);
+    }
+    for (const arc of g.arcs) {
+      const mid = norm(add(arc.a.p, arc.b.p));
+      arc.ctrl.p = scale(mid, 1.05 + 0.15 * (1 - (arc.m || 0)));
+      arc.ctrl.s = this.sphereProject(arc.ctrl.p, t);
+    }
     const front = (s) => 0.55 + 0.45 * Math.max(0, (s[2] + 1) / 2);   // closer is brighter
 
     // the wireframe globe: outline, equator and two meridians

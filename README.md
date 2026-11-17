@@ -14,6 +14,7 @@ My recent music from Last.fm, drawn two ways, with a "wrapped" of the period und
 - **A tree inside a wireframe globe.** Now is the centre; then the styles; then my artists; then a starburst around each artist with its songs, one dot per play, its tags and up to 30 similar artists from Last.fm.
 - **Bridges** inside the globe are the strongest tags or similar artists shared by several of my artists: they draw the web between the clusters. **Green arcs** join two artists I played that Last.fm finds similar.
 - **Hover** an artist: the rest fades away and its songs, tags and similar artists are named, without overlap. **Click** it: the camera flies to it.
+- **The same slider** ("Compact / Spread") opens the sphere inside a globe that keeps its size: the artists of a style move apart around the surface, and each starburst opens wider.
 
 
 **Wrapped**, under the drawing: the plays and the estimated time of the period, the top artist on its cover, the top song, the top 5 artists and songs, the styles, the busiest hour, the longest run of one artist and the longest session. Last.fm does not give the length of a song, so time is estimated at 3½ minutes per play, and the page says so.

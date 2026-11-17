@@ -144,6 +144,7 @@ function setView(view) {
   stage.classList.toggle("is-spiral", view === "spiral");
   stage.classList.toggle("is-sphere", view === "sphere");
   renderKey();
+  if (typeof syncStretch === "function") syncStretch(view);
   document.getElementById("hint").textContent = view === "sphere"
     ? "Drag to move · right-drag or Shift + drag to turn · Ctrl + wheel to zoom"
     : "Drag to move · right-drag or Shift + drag to turn · Ctrl + wheel to zoom";
@@ -352,11 +353,25 @@ zoomButton("zoom-in", () => scene.zoomAt(1.5));
 zoomButton("zoom-out", () => scene.zoomAt(1 / 1.5));
 zoomButton("zoom-reset", () => scene.resetView());
 
-document.getElementById("stretch").addEventListener("input", (event) => {
+// One slider, two meanings: the spiral stretches like a spring, the sphere spreads apart.
+// Each view keeps its own value.
+const stretchInput = document.getElementById("stretch");
+stretchInput.addEventListener("input", () => {
   touch();
-  scene.stretchTarget = Number(event.target.value) / 100;
+  const v = Number(stretchInput.value) / 100;
+  if (scene.mode === "sphere") scene.spreadTarget = v;
+  else scene.stretchTarget = v;
   state.dirty = true;
 });
+
+function syncStretch(view) {
+  const sphere = view === "sphere";
+  stretchInput.min = sphere ? "60" : "25";
+  stretchInput.max = sphere ? "250" : "300";
+  stretchInput.value = String(Math.round((sphere ? scene.spreadTarget : scene.stretchTarget) * 100));
+  document.getElementById("stretch-min").textContent = sphere ? "Compact" : "Coil";
+  document.getElementById("stretch-max").textContent = sphere ? "Spread" : "Stretch";
+}
 zoomButton("turn-left", () => { scene.rot -= 0.35; });
 zoomButton("turn-right", () => { scene.rot += 0.35; });
 

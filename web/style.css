@@ -519,5 +519,5 @@ body[data-view] .top { position: absolute; top: 0; left: 0; right: 0; }   /* bot
 
 /* the slider of the spiral: a tight coil <-> stretched like a spring */
 .stretch { display: none; align-items: center; gap: 8px; padding: 0 10px; height: 34px; font-size: 12px; font-weight: 700; background: var(--paper); color: var(--ink); }
-.stage.is-spiral .stretch { display: inline-flex; }
+.stage.is-spiral .stretch, .stage.is-sphere .stretch { display: inline-flex; }
 .stretch input { width: 120px; accent-color: var(--ribbon); }
