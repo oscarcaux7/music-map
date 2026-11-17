@@ -1,10 +1,10 @@
 # The map of my plays
 
-My recent music from Last.fm, drawn three ways, with a "wrapped" of the period underneath. Buttons switch between them.
+My recent music from Last.fm, drawn two ways, with a "wrapped" of the period underneath. Buttons switch between them.
 
 **Spiral** (after the timeline poster of the HfG Schwäbisch Gmünd)
 
-- **Time winds down a green ribbon.** The spiral fits my plays: whatever the window (3 h, 24 h, 7 days, all), it runs from my first play of the period to now, in 4 to 7 turns of a round length (10 minutes … 30 days). A flag says where it starts when it is shorter than the window. Covers close in time stand side by side instead of piling up; a hairline points to the exact time of a cover that had to move. The ribbon starts at **now**, its top end, marked by a round cap and a `NOW` flag, and winds down into the past.
+- **Time winds down a green ribbon.** The spiral fits my plays: whatever the window (3 h, 24 h, 7 days, all), it runs from my first play of the period to now, in 4 to 7 turns of a round length (10 minutes … 30 days). A flag says where it starts when it is shorter than the window. Covers close in time stand side by side instead of piling up; a hairline points to the exact time of a cover that had to move. Zooming out gathers the covers into bands; zooming in, they glide apart towards their times. A slider stretches the spiral, from a tight coil to a long spring hanging from now. The ribbon starts at **now**, its top end, marked by a round cap and a `NOW` flag, and winds down into the past.
 - **Each play is its album cover**, sitting on the ribbon. Flags mark the turns (`Tue 17`, `14:30`). Ticks mark every hour, or every 5 minutes in the 3 h view.
 - **The grey web is the correlations.** Vertical lines drop from each cover to the loop below; every play of a style is pulled to one point on the axis, so the bundles cross in the middle; each play is joined to the plays of other artists that share its Last.fm tags, by a curve through the inside of the spiral; plays of the same artist are chained. When many plays share one turn, the covers shrink so the links stay visible.
 - **The song playing now** sits above the spiral, with a pulsing frame.
@@ -15,11 +15,6 @@ My recent music from Last.fm, drawn three ways, with a "wrapped" of the period u
 - **Bridges** inside the globe are the strongest tags or similar artists shared by several of my artists: they draw the web between the clusters. **Green arcs** join two artists I played that Last.fm finds similar.
 - **Hover** an artist: the rest fades away and its songs, tags and similar artists are named, without overlap. **Click** it: the camera flies to it.
 
-**Disc** (after Will Sheppard's *Music CD checkouts from the Seattle Public Library*)
-
-- **Time is the groove of a record**, from my first play of the period (centre) to now (edge). It is cut into 360 slices of time.
-- **Each slice is a bar**: its colours stack the styles I played in it, its length grows with the plays (log scale). A fine line on every slice shows the smoothed density, like the grooves of the record.
-- **A slider unfolds the disc into a cone**: the past sinks into the middle, the bars rise like an equalizer.
 
 **Wrapped**, under the drawing: the plays and the estimated time of the period, the top artist on its cover, the top song, the top 5 artists and songs, the styles, the busiest hour, the longest run of one artist and the longest session. Last.fm does not give the length of a song, so time is estimated at 3½ minutes per play, and the page says so.
 
@@ -83,7 +78,6 @@ The server uses the Python standard library only, and the page plain JavaScript 
 | `web/data.js` | the request to `/api/map`, counting per period |
 | `web/layout.js` | the styles, the artists, the links between artists that share a tag |
 | `web/scene.js` | the spiral and the sphere, drawn on a canvas by hand (3D projection, zoom, camera) |
-| `web/disc.js` | the disc view: the record of time and its bars |
 | `web/stats.js` | the numbers of the "wrapped" section |
 | `web/ui.js` | the card, the legend, the wrapped cards, the pin board, the table, the messages |
 

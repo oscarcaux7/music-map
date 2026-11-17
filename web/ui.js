@@ -46,13 +46,7 @@ export function showCard(target, L, position, pinned) {
     artist = target.node.artist;
     $("card-value").textContent = plays(artist.plays);
     $("card-name").textContent = artist.name;
-    if (target.slice) {
-      const sl = target.slice;
-      const fmt = (ts) => clock(ts, agg.now);
-      $("card-line1").textContent = `${sl.total} play${sl.total > 1 ? "s" : ""} in this slice of time`;
-      $("card-line2").textContent = `${fmt(sl.from)} · most played here: ${artist.name}`;
-      coverInto($("card-cover"), sl.plays[0]?.c || artist.cover, artist.name);
-    } else if (target.tile) {
+    if (target.tile) {
       const s = target.tile.s;
       $("card-line1").textContent = s.t;
       $("card-line2").textContent = `Played ${clock(s.ts, agg.now)}${s.al ? " · " + s.al : ""}`;

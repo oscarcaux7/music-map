@@ -125,7 +125,6 @@ document.querySelectorAll("[data-range]").forEach((b) =>
 const KEYS = {
   spiral: () => `A spiral of time, from now (the top end) down to my first play of the period: one turn = ${scene.turnText()}. Each cover is a play, sitting on the ribbon; a hairline points to its exact time when covers had to make room. The grey threads join plays that share an artist, a style or tags.`,
   sphere: () => "A network in a globe: now in the centre, then the styles, my artists, and around each artist a starburst of its songs, tags and similar artists. White bridges are tags or similar artists shared by several of my artists; green arcs join two artists I play that sound alike. Click an artist to fly to it.",
-  disc: () => `Time as a record: the groove winds out from my first play (centre) to now (the edge), one turn = ${scene.discTurnText?.() || ""}. Each bar is a slice of time; its colours stack the styles I played in it, and its length grows with the number of plays. Unfold the disc into a cone with the slider.`,
 };
 
 function renderKey() {
@@ -144,12 +143,6 @@ function setView(view) {
   const stage = document.getElementById("stage");
   stage.classList.toggle("is-spiral", view === "spiral");
   stage.classList.toggle("is-sphere", view === "sphere");
-  stage.classList.toggle("is-disc", view === "disc");
-  if (view === "disc") {
-    // the record opens: flat first, then it unfolds to the slider's value
-    scene.unfold = 0;
-    scene.unfoldTarget = Number(document.getElementById("unfold").value) / 100;
-  }
   renderKey();
   document.getElementById("hint").textContent = view === "sphere"
     ? "Drag to move · right-drag or Shift + drag to turn · Ctrl + wheel to zoom"
@@ -359,9 +352,9 @@ zoomButton("zoom-in", () => scene.zoomAt(1.5));
 zoomButton("zoom-out", () => scene.zoomAt(1 / 1.5));
 zoomButton("zoom-reset", () => scene.resetView());
 
-document.getElementById("unfold").addEventListener("input", (event) => {
+document.getElementById("stretch").addEventListener("input", (event) => {
   touch();
-  scene.unfoldTarget = Number(event.target.value) / 100;
+  scene.stretchTarget = Number(event.target.value) / 100;
   state.dirty = true;
 });
 zoomButton("turn-left", () => { scene.rot -= 0.35; });
@@ -478,7 +471,7 @@ darkQuery.addEventListener("change", applyTheme);
 applyTheme();
 
 let savedView = "spiral";
-try { savedView = ["sphere", "disc"].includes(localStorage.getItem("view")) ? localStorage.getItem("view") : "spiral"; } catch { /* private mode */ }
+try { savedView = localStorage.getItem("view") === "sphere" ? "sphere" : "spiral"; } catch { /* private mode */ }
 setView(savedView);
 scene.setLayout(emptyLayout());
 requestAnimationFrame(frame);

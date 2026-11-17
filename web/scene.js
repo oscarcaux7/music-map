@@ -10,7 +10,6 @@
 // Every 3D point is turned into a pixel by hand: a rotation, then a small perspective.
 
 import { hash01 } from "./layout.js";
-import { discMethods } from "./disc.js";
 
 export const COLORS = {
   electro: "#1f8fe0",
@@ -64,6 +63,8 @@ export class Scene {
     this.target = { zoom: 1, panX: 0, panY: 0 };
     this.pitch = 0.3;          // how much we look down on the globe
     this.cam = null;           // { rot, pitch }: where the camera is flying to
+    this.stretch = 1;          // spiral: 1 = as fitted; less = a tight coil, more = stretched downwards
+    this.stretchTarget = 1;
     this.resize();
   }
 
@@ -100,7 +101,6 @@ export class Scene {
   resetView(zoom = 1) {
     this.target = { zoom, panX: 0, panY: 0 };
     if (this.mode === "sphere") this.cam = { rot: this.rot, pitch: 0.3 };
-    if (this.mode === "disc") this.cam = { rot: this.rot, pitch: 0.95 };
   }
 
   /** Sphere: turn the globe so that this artist faces me, and come closer (like a camera flying to it). */
@@ -128,8 +128,9 @@ export class Scene {
     this.panY += (t.panY - this.panY) * a;
     if (Math.abs(t.zoom - this.zoom) < 1e-4) this.zoom = t.zoom;
     let moving = Math.abs(this.zoom + this.panX + this.panY - before) > 1e-3;
-    if (this.unfoldTarget !== undefined && Math.abs(this.unfoldTarget - this.unfold) > 1e-3) {
-      this.unfold += (this.unfoldTarget - this.unfold) * (smooth ? 1 - Math.exp(-dt * 3) : 1);
+    // the spiral stretches like a spring, smoothly, towards the slider's value
+    if (Math.abs(this.stretchTarget - this.stretch) > 1e-3) {
+      this.stretch += (this.stretchTarget - this.stretch) * (smooth ? 1 - Math.exp(-dt * 5) : 1);
       moving = true;
     }
     if (this.cam) {
@@ -151,7 +152,7 @@ export class Scene {
     this.hovered = null;
     // each view has its own way of looking: the globe from the side, the record from above
     this.cam = null;
-    this.pitch = mode === "disc" ? 0.95 : 0.3;
+    this.pitch = 0.3;
   }
 
   resize() {
@@ -168,7 +169,6 @@ export class Scene {
     this.L = L;
     this.buildSpiral();
     this.buildGraph();
-    this.buildDisc();
   }
 
   cover(id) {
@@ -198,7 +198,6 @@ export class Scene {
     ctx.clearRect(0, 0, this.w, this.h);
     if (!this.L) return;
     if (this.mode === "sphere") this.drawSphere(time, animate);
-    else if (this.mode === "disc") this.drawDisc(time, animate);
     else this.drawSpiral(time, animate);
   }
 
@@ -320,7 +319,7 @@ export class Scene {
    * t.u. Covers too close in time are pushed apart, as a group centred on their times, so
    * they stand side by side instead of piling up. Their order never changes.
    */
-  spreadTiles(F) {
+  spreadTiles(F, animate = true) {
     const tiles = this.tiles;
     if (!tiles.length) return;
     const k = this.k;
@@ -328,7 +327,9 @@ export class Scene {
     const room = (0.92 * this.sp.turns * turnLen) / tiles.length;   // the most each cover can take
     let sum = 0;
     for (const t of tiles) {
-      t.base = Math.min((12 + 26 * t.size) * k * this.tileBoost * Math.pow(this.zoom, 0.85), Math.max(8, room));
+      // covers grow more slowly than the spiral when zooming: zoomed out, they gather into
+      // continuous bands; zooming in, the bands open and each cover slides towards its time
+      t.base = Math.min((12 + 26 * t.size) * k * this.tileBoost * Math.pow(this.zoom, 0.6), Math.max(8, room));
       sum += t.base;
     }
     const gap = ((sum / tiles.length) * 1.06) / turnLen;        // in turns
@@ -348,7 +349,11 @@ export class Scene {
     }
     for (const g of groups) {
       const start = Math.max(0, g.sum / g.items.length - ((g.items.length - 1) * gap) / 2);
-      g.items.forEach((t, i) => { t.du = start + i * gap; });
+      g.items.forEach((t, i) => { t.dTarget = start + i * gap; });
+    }
+    // each cover glides to its new place instead of jumping
+    for (const t of tiles) {
+      t.du = t.du === undefined || !animate ? t.dTarget : t.du + (t.dTarget - t.du) * 0.18;
     }
   }
 
@@ -366,12 +371,14 @@ export class Scene {
 
   spiralFrame() {
     const { turns } = this.sp;
+    // The size and the top (now) are set for the fitted spiral; the stretch slider then
+    // changes only the step between turns, so the spiral hangs from now like a spring.
     const pitch = 0.42;
     const H = pitch * Math.max(turns, 1);
     // room at the top for the header bar and the "now" marker, which stands above the spiral
     const room = 150 * this.k;
     const S = Math.min(this.w * 0.4, (this.h * 0.92 - room) / (H * Math.cos(TILT) + 2.2 * Math.sin(TILT) + 0.3));
-    return { S: S * this.zoom, pitch, top: H / 2 + 0.05, cy: this.h / 2 + room / 2 };
+    return { S: S * this.zoom, pitch: pitch * this.stretch, top: H / 2 + 0.05, cy: this.h / 2 + room / 2 };
   }
 
   /** u: turns ago. Returns [x, y, depth, perspective]. */
@@ -422,7 +429,7 @@ export class Scene {
     }
 
     // 2. the covers, spread along the ribbon so that no two overlap
-    this.spreadTiles(F);
+    this.spreadTiles(F, animate);
     for (const t of this.tiles) {
       const p = this.spiralPoint(t.du, F);
       t.side = t.base * p[3];
@@ -983,7 +990,6 @@ export class Scene {
       const [bx, by, bw, bh] = this.nowBox;
       if (x >= bx - 4 && x <= bx + bw + 4 && y >= by - 4 && y <= by + bh + 4) return { type: "now" };
     }
-    if (this.mode === "disc") return this.hitDisc(x, y);
     if (this.mode === "sphere") {
       let best = null;
       let bestD = 14 * 14;
@@ -1012,10 +1018,6 @@ export class Scene {
     if (!target) return null;
     if (target.type === "now") return this.nowAt ? [this.nowAt[0], this.nowAt[1] - 40] : null;
     if (target.type !== "node") return null;
-    if (this.mode === "disc") {
-      const sl = target.slice || this.disc?.slices.find((x) => x.plays.some((p) => p.a === target.node.artist.id));
-      return sl?.screen ? [sl.screen[0], sl.screen[1]] : null;
-    }
     if (this.mode === "sphere") {
       const n = this.graph?.artistNodes.get(target.node.artist.id);
       return n?.s ? [n.s[0], n.s[1]] : null;
@@ -1024,9 +1026,6 @@ export class Scene {
     return t ? [t.sx, t.sy] : null;
   }
 }
-
-// the record view lives in disc.js: its functions become methods of Scene
-Object.assign(Scene.prototype, discMethods);
 
 // ---------- small helpers ----------
 

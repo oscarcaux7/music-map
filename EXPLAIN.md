@@ -32,11 +32,7 @@ Inspirations : l'affiche « Interaktionsgestaltung » de la HfG Schwäbisch Gmü
 
 Tout est calculé dans `buildGraph` et dessiné dans `drawSphere` (`web/scene.js`). Au survol, le reste s'efface et les noms sont placés sans se chevaucher ; au clic, la caméra vole vers l'artiste (`flyTo` : on tourne le globe pour que l'artiste soit en face, puis on zoome).
 
-La spirale s'adapte aux écoutes : quelle que soit la fenêtre, elle va de la première écoute de la période à maintenant, en 4 à 7 tours d'une durée ronde. Les pochettes trop proches dans le temps sont écartées en groupe, centrées sur leurs heures (`spreadTiles`), et un trait fin montre l'heure exacte de celles qui ont dû bouger.
-
-## Le disque (troisième vue)
-
-D'après « Music CD checkouts from the Seattle Public Library » (Will Sheppard) : le temps est le sillon d'un disque, de ma première écoute (au centre) à maintenant (au bord), coupé en 360 tranches. Chaque tranche est une barre : ses couleurs empilent les styles écoutés, sa longueur suit le nombre d'écoutes (en log, pour qu'une seule écoute se voie). Un trait fin sur chaque tranche montre la densité lissée (une moyenne gaussienne), comme les sillons. Le curseur déplie le disque en cône. Code : `web/disc.js`.
+La spirale s'adapte aux écoutes : quelle que soit la fenêtre, elle va de la première écoute de la période à maintenant, en 4 à 7 tours d'une durée ronde. Les pochettes trop proches dans le temps sont écartées en groupe, centrées sur leurs heures (`spreadTiles`), et un trait fin montre l'heure exacte de celles qui ont dû bouger. Les pochettes grandissent moins vite que la spirale quand on zoome : de loin elles forment des bandes, de près elles glissent vers leur heure. Le curseur « Coil / Stretch » change seulement le pas entre deux tours : la spirale pend depuis maintenant comme un ressort.
 
 ## Wrapped
 
