@@ -38,6 +38,28 @@ MAX_COVER_BYTES = 3 * 1024 * 1024
 # A page asks for dozens of covers at once. Downloading them all in parallel can make
 # Last.fm's image server refuse some: at most 4 downloads at a time.
 COVER_SLOTS = threading.BoundedSemaphore(4)
+COVER_FAILED = {}              # cover id -> when all its addresses failed
+COVER_RETRY_AFTER = 600        # then wait 10 minutes before trying again
+
+
+def cover_candidates(url):
+    """The same Last.fm image at its other addresses: the first one asked, then the other
+    image host, then the other sizes Last.fm makes of every cover. A CDN edge that refuses
+    one address often serves another."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.hostname not in COVER_HOSTS:     # only Last.fm's own images, never another site
+        return []
+    out = [url]
+    pieces = parts.path.split("/")              # ["", "i", "u", "300x300", "<hash>.jpg"]
+    if len(pieces) >= 5 and pieces[1:3] == ["i", "u"]:
+        name = pieces[-1]
+        hosts = [parts.hostname] + [h for h in ("lastfm.freetls.fastly.net", "lastfm-img.freetls.fastly.net") if h != parts.hostname]
+        for host in hosts:
+            for size in ("300x300", "174s", "770x0"):
+                candidate = f"https://{host}/i/u/{size}/{name}"
+                if candidate not in out:
+                    out.append(candidate)
+    return [u for u in out if urllib.parse.urlsplit(u).hostname in COVER_HOSTS][:6]
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; "
@@ -144,21 +166,29 @@ class Handler(BaseHTTPRequestHandler):
             url = self.service.covers.get(cid)
         if not url or urllib.parse.urlsplit(url).hostname not in COVER_HOSTS:
             return self.send_json(404, {"error": "not_found"})
+        failed_at = COVER_FAILED.get(cid)
+        if failed_at and time.time() - failed_at < COVER_RETRY_AFTER:
+            return self.send_json(502, {"error": "cover_unreachable"})   # failed a moment ago: don't hammer
         body, ctype = None, ""
         with COVER_SLOTS:
-            for attempt in (1, 2):   # the image server sometimes fails once: try a second time
+            for i, candidate in enumerate(cover_candidates(url)):
+                if i:
+                    time.sleep(0.3)
                 try:
-                    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+                    req = urllib.request.Request(candidate, headers={"User-Agent": USER_AGENT})
                     with urllib.request.urlopen(req, timeout=8) as resp:
                         ctype = resp.headers.get_content_type()
                         body = resp.read(MAX_COVER_BYTES + 1)
                     break
+                except urllib.error.HTTPError as error:
+                    # the CDN refused this address (often one edge without the image): try the next one
+                    log.warning("cover %s, address %d refused: HTTP %s", cid, i + 1, error.code)
                 except (urllib.error.URLError, OSError) as error:
-                    log.warning("cover %s, try %d failed: %s", cid, attempt, type(error).__name__)
-                    if attempt == 1:
-                        time.sleep(0.6)
+                    log.warning("cover %s, address %d failed: %s", cid, i + 1, type(error).__name__)
         if body is None:
+            COVER_FAILED[cid] = time.time()
             return self.send_json(502, {"error": "cover_unreachable"})
+        COVER_FAILED.pop(cid, None)
         if not ctype.startswith("image/") or len(body) > MAX_COVER_BYTES:
             return self.send_json(502, {"error": "cover_invalid"})
         try:

@@ -219,3 +219,13 @@ def test_similar_artists_asked_once_and_linked(setup):
     assert {"n": "MF DOOM", "m": 0.8, "id": ids["MF DOOM"]} in daft   # a link to an artist I listened to
     assert {"n": "Madvillain", "m": 0.5} in daft                        # an artist I never played
     assert all(item.get("id") != ids["MF DOOM"] for item in payload["similar"][ids["MF DOOM"]])
+
+
+def test_cover_candidates_stay_on_lastfm_image_hosts():
+    import app
+    url = "https://lastfm-img.freetls.fastly.net/i/u/300x300/abc123.jpg"
+    candidates = app.cover_candidates(url)
+    assert candidates[0] == url                       # the address Last.fm gave comes first
+    assert "https://lastfm.freetls.fastly.net/i/u/300x300/abc123.jpg" in candidates
+    assert all(c.split("/")[2] in app.COVER_HOSTS for c in candidates)
+    assert app.cover_candidates("https://evil.example/i/u/300x300/abc.jpg") == []
