@@ -473,9 +473,12 @@ export class Scene {
     ctx.strokeStyle = `rgba(${this.t.thread}, 0.32)`;
     ctx.beginPath();
     for (const t of this.tiles) {
-      const below = this.spiralPoint(Math.min(this.sp.turns, t.u + 1), F);
+      // one turn below where the cover is drawn (t.du, not its exact time t.u): same angle,
+      // so the line falls straight and lands on the loop. The last turn has no loop under it.
+      if (t.du + 1 > this.sp.turns) continue;
+      const below = this.spiralPoint(t.du + 1, F);
       ctx.moveTo(t.sx, t.sy + t.side / 2);
-      ctx.lineTo(t.sx, Math.max(t.sy + t.side / 2, below[1]));
+      ctx.lineTo(below[0], below[1]);
     }
     ctx.stroke();
     //   plays of the same style, pulled to their point on the axis
@@ -499,7 +502,9 @@ export class Scene {
     ctx.strokeStyle = `rgba(${this.t.thread}, 0.45)`;
     ctx.beginPath();
     for (const t of this.tiles) {
-      if (Math.abs(t.du - t.u) * TAU * F.S < t.base * 0.5) continue;
+      // only for a short move: a cover pushed far would draw a long line across the spiral
+      const moved = Math.abs(t.du - t.u);
+      if (moved * TAU * F.S < t.base * 0.5 || moved > 0.12) continue;
       const p = this.spiralPoint(t.u, F);
       ctx.moveTo(t.sx, t.sy + t.side / 2); ctx.lineTo(p[0], p[1]);
     }
