@@ -33,7 +33,7 @@ class Unavailable(Exception):
 
 class MapService:
     def __init__(self, client, user, data_dir, recent_ttl=120, tags_ttl=14 * 86400,
-                 retry_after=30, tag_budget=4.0, clock=time.time):
+                 retry_after=30, tag_budget=4.0, clock=time.time, cover_finder=None):
         self.client = client  # None in demo mode
         self.user = user
         self.data_dir = data_dir
@@ -53,6 +53,9 @@ class MapService:
         self._tags_running = set()
         self._similar = {}                  # artist key -> {"similar": [[name, match]], "at": time}
         self._similar_running = set()
+        self.cover_finder = cover_finder    # finds a cover for a song without one (covers.py)
+        self._extra = {}                    # "artist|track" -> {"url": ... or None, "at": time}
+        self._extra_running = set()
         self.covers = {}                    # cover id -> image URL
         self._pool = ThreadPoolExecutor(max_workers=3)
         self._load_from_disk()
@@ -100,10 +103,12 @@ class MapService:
         if status == "miss":
             self._fetch_missing_tags(tracks)
         self._fetch_missing_similar(tracks)  # never waits; only artists not asked yet
-        payload = shaping.build_payload(tracks, self._known_tags, now, self.user, self.covers)
+        self._fetch_missing_covers(tracks)  # never waits; only songs without a cover, once
+        payload = shaping.build_payload(tracks, self._known_tags, now, self.user, self.covers,
+                                        cover_for=self._known_cover)
         payload["similar"] = shaping.similar_payload(payload, self._known_similar)
         with self._tags_lock:
-            payload["similar_pending"] = len(self._similar_running)
+            payload["similar_pending"] = len(self._similar_running) + len(self._extra_running)
         return self._finish(payload, status, fetched_at=self._fetched_at)
 
     def _finish(self, payload, status, fetched_at):
@@ -198,6 +203,47 @@ class MapService:
             data = dict(self._similar)
         self._write_json("similar.json", data)
 
+    # ---------- covers for songs that came without one ----------
+
+    @staticmethod
+    def _song_key(artist, track):
+        return f"{shaping.artist_key(artist)}|{track.strip().casefold()}"
+
+    def _known_cover(self, artist, track):
+        entry = self._extra.get(self._song_key(artist, track))
+        return entry["url"] if entry else None
+
+    def _fetch_missing_covers(self, tracks):
+        if self.cover_finder is None:
+            return
+        now = self.clock()
+        todo = {}
+        for t in tracks:
+            if t.get("image"):
+                continue
+            key = self._song_key(t["artist"], t["track"])
+            entry = self._extra.get(key)
+            # found: kept 30 days; not found: asked again the next day
+            stale = entry is None or now - entry["at"] > (30 * 86400 if entry["url"] else 86400)
+            if stale and key not in self._extra_running:
+                todo[key] = t
+        with self._tags_lock:
+            self._extra_running.update(todo)
+        for key, t in todo.items():
+            self._pool.submit(self._fetch_cover, key, t["artist"], t["track"], t.get("album"))
+
+    def _fetch_cover(self, key, artist, track, album):
+        try:
+            url = self.cover_finder.find(artist, track, album)
+        except Exception as error:  # a cover is only decoration: never break the map for it
+            log.warning("cover lookup failed: %s", type(error).__name__)
+            url = None
+        with self._tags_lock:
+            self._extra[key] = {"url": url, "at": self.clock()}
+            self._extra_running.discard(key)
+            data = dict(self._extra)
+        self._write_json("extra_covers.json", data)
+
     # ---------- disk: keeps the last answer and the styles across restarts ----------
 
     def _path(self, name):
@@ -244,5 +290,10 @@ class MapService:
         try:
             with open(self._path("similar.json"), encoding="utf-8") as f:
                 self._similar = json.load(f)
+        except (OSError, ValueError):
+            pass
+        try:
+            with open(self._path("extra_covers.json"), encoding="utf-8") as f:
+                self._extra = json.load(f)
         except (OSError, ValueError):
             pass

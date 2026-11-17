@@ -77,7 +77,7 @@ def artist_key(name):
     return name.strip().casefold()
 
 
-def build_payload(tracks, tags_for, now, user, covers):
+def build_payload(tracks, tags_for, now, user, covers, cover_for=None):
     """Build the JSON for /api/map.
 
     tracks    songs from LastfmClient.recent_tracks (or the demo)
@@ -114,7 +114,9 @@ def build_payload(tracks, tags_for, now, user, covers):
                 "cover": None,
             }
         artist = artists[key]
-        cid = cover_id(t.get("image"))
+        # no image from Last.fm: the one found later by covers.py, if any
+        image = t.get("image") or (cover_for(t["artist"], t["track"]) if cover_for else None)
+        cid = cover_id(image)
         if cid and not artist["cover"]:
             artist["cover"] = cid  # the newest cover we have for this artist
 

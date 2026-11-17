@@ -4,6 +4,7 @@ Two methods are used:
   user.getRecentTracks  the songs you listened to (one call per refresh)
   artist.getTopTags     the styles of an artist (one call per new artist, kept for days)
   artist.getSimilar     the artists close to an artist (one call per new artist, kept for days)
+  album.getInfo         the cover of an album, only for a song that came without one
 
 The API key is read from the environment by app.py and passed in here.
 It is never logged and never put in an error message, because the request
@@ -114,6 +115,12 @@ class LastfmClient:
             if name:
                 result.append((name, round(match, 3)))
         return result[:limit]
+
+
+    def album_image(self, artist, album):
+        """The biggest image of an album, or None."""
+        data = self._get("album.getInfo", artist=artist, album=album, autocorrect=1)
+        return best_image((data.get("album") or {}).get("image"))
 
 
 def _text(value):

@@ -59,6 +59,8 @@ Sous le dessin, la période en quelques chiffres (`web/stats.js`) : écoutes, te
 
 **Au premier chargement, `/api/health` montre aussi des appels `artist.getTopTags` et `artist.getSimilar` : ça casse la règle ?** Non : les écoutes, elles, sont demandées une seule fois. Tags et artistes proches sont demandés une seule fois **par artiste nouveau**, puis gardés 14 jours sur disque (dans le volume Docker). Au deuxième rechargement : zéro appel. Le serveur attend les tags au plus 4 secondes et n'attend jamais les artistes proches : ils arrivent en arrière plan et la page redemande 6 secondes après.
 
+**Et les pochettes manquantes ?** Last.fm donne parfois un morceau sans image. Le serveur en cherche une, une fois par morceau et en arrière plan (`server/covers.py`) : la page de l'album sur Last.fm (`album.getInfo`), puis la recherche publique de Deezer, en ne gardant un résultat que si l'artiste et le titre correspondent. Le résultat est gardé 30 jours. Le navigateur ne parle toujours qu'à mon serveur : l'image passe par `/api/cover`.
+
 **Pourquoi le serveur et pas directement le navigateur vers Last.fm ?** Pour cacher la clé, et pour que cent visiteurs ne fassent pas cent appels : le serveur est le seul client de Last.fm.
 
 **Que se passe t il si dix personnes chargent la page en même temps quand le cache expire ?** Un verrou (`threading.Lock` dans `service.py`) fait qu'une seule requête appelle Last.fm ; les autres attendent et reçoivent la même réponse.

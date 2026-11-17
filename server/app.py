@@ -24,6 +24,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import demo
+from covers import CoverFinder
 from lastfm import DEFAULT_API_ROOT, USER_AGENT, LastfmClient
 from service import MapService, Unavailable
 
@@ -33,7 +34,8 @@ log = logging.getLogger("app")
 WEB_DIR = os.path.realpath(os.environ.get("WEB_DIR", os.path.join(os.path.dirname(__file__), "..", "web")))
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 COVER_DIR = os.path.join(DATA_DIR, "covers")
-COVER_HOSTS = ("lastfm.freetls.fastly.net", "lastfm-img.freetls.fastly.net", "lastfm-img2.akamaized.net")
+COVER_HOSTS = ("lastfm.freetls.fastly.net", "lastfm-img.freetls.fastly.net", "lastfm-img2.akamaized.net",
+               "cdn-images.dzcdn.net", "e-cdns-images.dzcdn.net")   # Deezer: covers.py, for songs without one
 MAX_COVER_BYTES = 3 * 1024 * 1024
 # A page asks for dozens of covers at once. Downloading them all in parallel can make
 # Last.fm's image server refuse some: at most 4 downloads at a time.
@@ -81,10 +83,12 @@ def make_service():
     else:
         client = LastfmClient(key, api_root=os.environ.get("LASTFM_API_ROOT", DEFAULT_API_ROOT))
         log.info("Last.fm mode for user %s", user)
+    finder = CoverFinder(client) if client is not None else None
     return MapService(
         client, user, DATA_DIR,
         recent_ttl=int(os.environ.get("RECENT_TTL", "60")),
         tags_ttl=int(os.environ.get("TAGS_TTL_DAYS", "14")) * 86400,
+        cover_finder=finder,
     )
 
 

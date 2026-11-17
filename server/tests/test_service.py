@@ -3,6 +3,7 @@ No network: a fake Last.fm answers instead of the real one.
 """
 
 import json
+import time
 import os
 import sys
 
@@ -229,3 +230,42 @@ def test_cover_candidates_stay_on_lastfm_image_hosts():
     assert "https://lastfm.freetls.fastly.net/i/u/300x300/abc123.jpg" in candidates
     assert all(c.split("/")[2] in app.COVER_HOSTS for c in candidates)
     assert app.cover_candidates("https://evil.example/i/u/300x300/abc.jpg") == []
+
+
+# ---------- covers for songs that come without one ----------
+
+def test_deezer_keeps_only_a_cover_whose_artist_and_title_match():
+    from covers import CoverFinder
+    answer = {"data": [
+        {"artist": {"name": "Sto"}, "title": "5 étoiles", "album": {"cover_xl": "https://cdn-images.dzcdn.net/images/cover/wrong/1000x1000-x.jpg"}},
+        {"artist": {"name": "Sydo"}, "title": "5 étoiles", "album": {"cover_xl": "https://cdn-images.dzcdn.net/images/cover/right/1000x1000-x.jpg"}},
+    ]}
+    finder = CoverFinder(None, transport=lambda url, timeout: answer)
+    assert finder.find("Sydo", "5 Etoiles", None) == "https://cdn-images.dzcdn.net/images/cover/right/500x500-x.jpg"
+    assert finder.find("Nobody", "5 étoiles", None) is None
+    session = {"data": [{"artist": {"name": "Walydo"}, "title": "Walydo Session #3 : Osirus Jack",
+                         "album": {"cover_xl": "https://cdn-images.dzcdn.net/images/cover/w/1000x1000-x.jpg"}}]}
+    finder = CoverFinder(None, transport=lambda url, timeout: session)
+    assert finder.find("Osirus Jack", "Walydo Session #3 : Osirus Jack", None)   # the artist is named in the title
+    assert finder.find("Walydo & Osirus Jack", "Walydo Session #3 : Osirus Jack", None)   # several artists
+
+
+def test_a_song_without_cover_is_looked_up_once(tmp_path):
+    asked = []
+
+    class Finder:
+        def find(self, artist, track, album):
+            asked.append((artist, track))
+            return "https://cdn-images.dzcdn.net/images/cover/abc/500x500-x.jpg"
+
+    fake, clock = FakeLastfm(), Clock()
+    service = MapService(LastfmClient(KEY, transport=fake), "oscar", str(tmp_path), clock=clock, cover_finder=Finder())
+    service.get_map()
+    end = time.monotonic() + 2
+    while service._extra_running and time.monotonic() < end:
+        time.sleep(0.01)
+    clock.t += 121
+    payload, _ = service.get_map()
+    assert asked == [("MF DOOM", "Rhymes Like Dimes")]          # the only song that came without a cover
+    doom = [s for s in payload["scrobbles"] if s["t"] == "Rhymes Like Dimes"][0]
+    assert doom["c"] and service.covers[doom["c"]].startswith("https://cdn-images.dzcdn.net/")

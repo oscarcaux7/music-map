@@ -91,6 +91,7 @@ browser ──► my server (Python, port 8000 in the container, 8080 outside) �
             │ /api/health  how many calls went to Last.fm, per method
 ```
 
+- **A song without a cover.** Last.fm sometimes gives a song with no image (a new single, a soundtrack). The server then looks for one, once per song and in the background: Last.fm's album page (`album.getInfo`) first, then Deezer's public search, keeping a result only if its artist and title match. The answer is kept 30 days (a miss is tried again the next day) in `extra_covers.json`, and the image goes through `/api/cover` like the others. When Last.fm's image server refuses a cover, the server tries its other addresses.
 - **The browser only talks to my server.** The server sends a `Content-Security-Policy` header that forbids the page to contact any other address, so the browser itself enforces the rule. Covers are served by `/api/cover/<id>`, not loaded from Last.fm's image server.
 - **The key stays on the server.** It is read from an environment variable, and never written in the page, in a log or in an error message.
 - **Cache.** The server keeps the recent songs (`user.getRecentTracks`) for `RECENT_TTL` seconds. Two reloads in a row make one call: the response header `X-Cache` says `miss` the first time, `hit` the second. The styles of an artist (`artist.getTopTags`) and its similar artists (`artist.getSimilar`) are asked once per new artist, then kept for 14 days on disk. The page never waits for the similar artists: they load in the background.
@@ -107,6 +108,7 @@ The server uses the Python standard library only, and the page plain JavaScript 
 | `server/lastfm.py` | the calls to Last.fm |
 | `server/service.py` | the cache, the saved copy on disk, the styles and the similar artists |
 | `server/shaping.py` | turns songs into the data the page draws, finds each style |
+| `server/covers.py` | a cover for a song that Last.fm gives without one (Last.fm's album page, then Deezer) |
 | `server/demo.py` | the demo data and its drawn covers |
 | `web/main.js` | loading, views, pointer, zoom, keyboard, theme, refresh every minute |
 | `web/data.js` | the request to `/api/map`, counting per period |

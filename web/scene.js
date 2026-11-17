@@ -278,7 +278,7 @@ export class Scene {
     const perTurn = new Map();
     for (const t of this.tiles) perTurn.set(Math.floor(t.u), (perTurn.get(Math.floor(t.u)) || 0) + 1);
     const crowd = Math.max(0, ...perTurn.values());
-    if (crowd > 16) this.tileBoost *= Math.max(0.42, Math.sqrt(16 / crowd));
+    if (crowd > 16) this.tileBoost *= Math.max(0.55, Math.sqrt(16 / crowd));
 
     // threads: each play to the previous play of the same artist
     this.threads = [];
@@ -332,7 +332,7 @@ export class Scene {
     for (const t of tiles) {
       // covers grow more slowly than the spiral when zooming: zoomed out, they gather into
       // continuous bands; zooming in, the bands open and each cover slides towards its time
-      t.base = Math.min((12 + 26 * t.size) * k * this.tileBoost * Math.pow(this.zoom, 0.6), Math.max(8, room));
+      t.base = Math.min((16 + 32 * t.size) * k * this.tileBoost * Math.pow(this.zoom, 0.6), Math.max(8, room));
       sum += t.base;
     }
     const gap = ((sum / tiles.length) * 1.06) / turnLen;        // in turns
