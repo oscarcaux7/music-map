@@ -16,6 +16,8 @@ import logging
 import mimetypes
 import os
 import sys
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -33,6 +35,9 @@ DATA_DIR = os.environ.get("DATA_DIR", "/data")
 COVER_DIR = os.path.join(DATA_DIR, "covers")
 COVER_HOSTS = ("lastfm.freetls.fastly.net", "lastfm-img.freetls.fastly.net", "lastfm-img2.akamaized.net")
 MAX_COVER_BYTES = 3 * 1024 * 1024
+# A page asks for dozens of covers at once. Downloading them all in parallel can make
+# Last.fm's image server refuse some: at most 4 downloads at a time.
+COVER_SLOTS = threading.BoundedSemaphore(4)
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; "
@@ -129,14 +134,30 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_bytes(200, f.read(), ctype, cache=True)
 
         url = self.service.covers.get(cid)  # only URLs that came from Last.fm's answers
+        if not url:
+            # Just after a restart the server does not know the covers yet: the page, still
+            # open, asks for them before /api/map. Build the map once (cache or saved copy).
+            try:
+                self.service.get_map()
+            except Exception:
+                pass
+            url = self.service.covers.get(cid)
         if not url or urllib.parse.urlsplit(url).hostname not in COVER_HOSTS:
             return self.send_json(404, {"error": "not_found"})
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                ctype = resp.headers.get_content_type()
-                body = resp.read(MAX_COVER_BYTES + 1)
-        except (urllib.error.URLError, OSError):
+        body, ctype = None, ""
+        with COVER_SLOTS:
+            for attempt in (1, 2):   # the image server sometimes fails once: try a second time
+                try:
+                    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+                    with urllib.request.urlopen(req, timeout=8) as resp:
+                        ctype = resp.headers.get_content_type()
+                        body = resp.read(MAX_COVER_BYTES + 1)
+                    break
+                except (urllib.error.URLError, OSError) as error:
+                    log.warning("cover %s, try %d failed: %s", cid, attempt, type(error).__name__)
+                    if attempt == 1:
+                        time.sleep(0.6)
+        if body is None:
             return self.send_json(502, {"error": "cover_unreachable"})
         if not ctype.startswith("image/") or len(body) > MAX_COVER_BYTES:
             return self.send_json(502, {"error": "cover_invalid"})

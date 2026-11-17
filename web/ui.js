@@ -13,24 +13,39 @@ function el(tag, className, text) {
   return node;
 }
 
-function coverInto(container, coverId, name) {
-  container.replaceChildren();
-  if (coverId) {
-    const img = el("img");
-    img.src = `/api/cover/${encodeURIComponent(coverId)}`;
-    img.alt = "";
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.addEventListener("error", () => img.replaceWith(el("span", "no-cover", initials(name))));
-    container.append(img);
-  } else {
-    container.append(el("span", "no-cover", initials(name)));
-  }
+/** A sleeve for a song with no cover: the colour of its style, and its title in big letters. */
+function sleeve(name, family) {
+  const s = el("span", "no-cover");
+  s.style.setProperty("--family", COLORS[family] || COLORS.autre);
+  s.append(el("span", "no-cover-title", name || "?"));
+  return s;
 }
 
-function initials(name) {
-  return (name || "?").split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+function coverInto(container, coverId, name, family) {
+  container.replaceChildren();
+  if (!coverId) {
+    container.append(sleeve(name, family));
+    return;
+  }
+  const img = el("img");
+  const src = `/api/cover/${encodeURIComponent(coverId)}`;
+  img.src = src;
+  img.alt = "";
+  img.loading = "lazy";
+  img.decoding = "async";
+  let retried = false;
+  img.addEventListener("error", () => {
+    // the server may have been busy or just restarted: one more try, a little later
+    if (!retried) {
+      retried = true;
+      setTimeout(() => { img.src = `${src}?retry=1`; }, 2500 + Math.random() * 2000);
+      return;
+    }
+    img.replaceWith(sleeve(name, family));
+  });
+  container.append(img);
 }
+
 
 function familyLabel(L, id) {
   return L.sectors.find((s) => s.id === id)?.label || "Other";
@@ -50,11 +65,11 @@ export function showCard(target, L, position, pinned) {
       const s = target.tile.s;
       $("card-line1").textContent = s.t;
       $("card-line2").textContent = `Played ${clock(s.ts, agg.now)}${s.al ? " · " + s.al : ""}`;
-      coverInto($("card-cover"), s.c || artist.cover, artist.name);
+      coverInto($("card-cover"), s.c || artist.cover, s.t, artist.family);
     } else {
       $("card-line1").textContent = artist.topTrack ? `Most played: ${artist.topTrack}` : "";
       $("card-line2").textContent = `Last played ${ago(agg.now - artist.last)}`;
-      coverInto($("card-cover"), artist.cover, artist.name);
+      coverInto($("card-cover"), artist.cover, artist.name, artist.family);
     }
   } else if (target.type === "now") {
     const np = agg.nowPlaying;
@@ -63,7 +78,7 @@ export function showCard(target, L, position, pinned) {
     $("card-name").textContent = np ? np.t : "Nothing is playing right now";
     $("card-line1").textContent = np ? artist?.name || "" : "Play a song: it will appear here.";
     $("card-line2").textContent = np && np.al ? np.al : "";
-    coverInto($("card-cover"), np?.c, np ? np.t : "");
+    coverInto($("card-cover"), np?.c || np?.artist?.cover, np ? np.t : "", np?.artist?.family);
   } else {
     return hideCard();
   }
@@ -129,7 +144,7 @@ export function renderTape(L, onPoint) {
     button.type = "button";
     button.style.setProperty("--family", COLORS[artist?.family] || COLORS.autre);
     const thumb = el("span", "thumb");
-    coverInto(thumb, s.c, s.t);
+    coverInto(thumb, s.c || artist?.cover, s.t, artist?.family);   // no cover for the song: the artist's
     button.append(thumb, el("span", "t-track", s.t), el("span", "t-artist", artist?.name || ""),
       el("span", "t-time", clock(s.ts, agg.now)));
     button.setAttribute("aria-label", `${s.t}, ${artist?.name || ""}, ${clock(s.ts, agg.now)}. Show on the map.`);
@@ -246,7 +261,7 @@ export function renderWrapped(stats, periodTitle, minutesPerPlay, duration) {
   const a = stats.topArtists[0];
   const top = card("w-artist", "Top artist");
   const bg = el("div", "w-cover");
-  coverInto(bg, a.cover, a.name);
+  coverInto(bg, a.cover, a.name, a.family);
   top.prepend(bg);
   top.append(
     el("p", "w-big", a.name),
@@ -258,7 +273,7 @@ export function renderWrapped(stats, periodTitle, minutesPerPlay, duration) {
   const s = stats.topSongs[0];
   const song = card("w-song", "Top song");
   const thumb = el("div", "w-thumb");
-  coverInto(thumb, s.cover || s.artist?.cover, s.title);
+  coverInto(thumb, s.cover || s.artist?.cover, s.title, s.artist?.family);
   song.append(thumb, el("p", "w-mid", s.title), el("p", "w-line", s.artist?.name || ""),
     el("p", "w-times", `${s.plays}×`));
 

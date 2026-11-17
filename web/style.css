@@ -257,10 +257,26 @@ body[data-view] .top { position: absolute; top: 0; left: 0; right: 0; }   /* bot
 .card.is-pinned { pointer-events: auto; }
 .card-cover { width: 120px; height: 120px; border-radius: 9px; background: var(--check); overflow: hidden; }
 .card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* a song with no cover: a sleeve in the colour of its style, with its title in big letters */
 .no-cover {
-  display: grid; place-items: center; width: 100%; height: 100%;
-  font: 700 30px var(--font); color: var(--muted);
+  --family: var(--muted);
+  display: flex; align-items: flex-end;
+  width: 100%; height: 100%;
+  padding: 10%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.28) 0 14%, transparent 15%),
+    linear-gradient(150deg, var(--family), color-mix(in srgb, var(--family) 55%, #000));
+  color: #fff;
 }
+.no-cover-title {
+  font: 900 clamp(14px, 1.6vw, 22px)/0.95 var(--font);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card-cover .no-cover-title { font-size: 15px; }
 .card-body { min-width: 0; padding-top: 2px; }
 .card-value {
   display: inline-block;

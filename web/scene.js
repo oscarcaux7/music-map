@@ -186,6 +186,12 @@ export class Scene {
       entry = { img, ok: false };
       img.decoding = "async";
       img.onload = () => { entry.ok = true; this.onImage?.(); };
+      // one more try a little later: the server may have been busy or just restarted
+      img.onerror = () => {
+        if (entry.retried) return;
+        entry.retried = true;
+        setTimeout(() => { img.src = `/api/cover/${encodeURIComponent(id)}?retry=1`; }, 2500 + Math.random() * 2000);
+      };
       img.src = `/api/cover/${encodeURIComponent(id)}`;
       this.images.set(id, entry);
     }
