@@ -46,7 +46,13 @@ export function showCard(target, L, position, pinned) {
     artist = target.node.artist;
     $("card-value").textContent = plays(artist.plays);
     $("card-name").textContent = artist.name;
-    if (target.tile) {
+    if (target.slice) {
+      const sl = target.slice;
+      const fmt = (ts) => clock(ts, agg.now);
+      $("card-line1").textContent = `${sl.total} play${sl.total > 1 ? "s" : ""} in this slice of time`;
+      $("card-line2").textContent = `${fmt(sl.from)} · most played here: ${artist.name}`;
+      coverInto($("card-cover"), sl.plays[0]?.c || artist.cover, artist.name);
+    } else if (target.tile) {
       const s = target.tile.s;
       $("card-line1").textContent = s.t;
       $("card-line2").textContent = `Played ${clock(s.ts, agg.now)}${s.al ? " · " + s.al : ""}`;
@@ -198,4 +204,115 @@ export function setStatusText(text, stale = false) {
   const status = $("status");
   status.textContent = text;
   status.classList.toggle("is-stale", stale);
+}
+
+// ---------- the period, wrapped ----------
+
+const pct = (x) => `${Math.round(x * 100)}%`;
+
+function card(className, label) {
+  const c = el("article", `w-card ${className}`);
+  c.append(el("p", "w-label", label));
+  return c;
+}
+
+function ranked(items, value, name, sub) {
+  const ol = el("ol", "w-rank");
+  const max = Math.max(1, ...items.map(value));
+  items.forEach((it, i) => {
+    const li = el("li");
+    const bar = el("span", "w-bar");
+    bar.style.setProperty("--w", `${(value(it) / max) * 100}%`);
+    const text = el("span", "w-rank-text");
+    text.append(el("span", "w-rank-name", name(it)), el("span", "w-rank-sub", sub(it)));
+    li.append(el("span", "w-rank-n", String(i + 1)), text, el("span", "w-rank-v", String(value(it))), bar);
+    ol.append(li);
+  });
+  return ol;
+}
+
+export function renderWrapped(stats, periodTitle, minutesPerPlay, duration) {
+  const root = $("wrapped");
+  root.replaceChildren();
+  $("wrapped-period").textContent = periodTitle;
+  if (!stats) {
+    root.append(el("p", "w-empty", "No plays in this period yet."));
+    return;
+  }
+
+  // 1. the total
+  const total = card("w-total", "In this period");
+  total.append(
+    el("p", "w-huge", String(stats.plays)),
+    el("p", "w-unit", stats.plays > 1 ? "plays" : "play"),
+    el("p", "w-line", `≈ ${duration(stats.minutes)} of music · ${stats.artistsCount} artists · ${stats.songsCount} songs`),
+  );
+
+  // 2. the top artist, on its cover
+  const a = stats.topArtists[0];
+  const top = card("w-artist", "Top artist");
+  const bg = el("div", "w-cover");
+  coverInto(bg, a.cover, a.name);
+  top.prepend(bg);
+  top.append(
+    el("p", "w-big", a.name),
+    el("p", "w-line", `${a.plays} plays · ≈ ${duration(a.plays * minutesPerPlay)} · ${pct(a.plays / stats.plays)} of my plays`),
+  );
+  top.style.setProperty("--family", COLORS[a.family] || COLORS.autre);
+
+  // 3. the top song
+  const s = stats.topSongs[0];
+  const song = card("w-song", "Top song");
+  const thumb = el("div", "w-thumb");
+  coverInto(thumb, s.cover || s.artist?.cover, s.title);
+  song.append(thumb, el("p", "w-mid", s.title), el("p", "w-line", s.artist?.name || ""),
+    el("p", "w-times", `${s.plays}×`));
+
+  // 4. and 5. the top fives
+  const artists = card("w-list", "Top 5 artists");
+  artists.append(ranked(stats.topArtists, (x) => x.plays, (x) => x.name, (x) => `≈ ${duration(x.plays * minutesPerPlay)}`));
+  const songs = card("w-list", "Top 5 songs");
+  songs.append(ranked(stats.topSongs, (x) => x.plays, (x) => x.title, (x) => x.artist?.name || ""));
+
+  // 6. the styles, as one bar
+  const st = stats.styles[0];
+  const styles = card("w-styles", "Mostly");
+  styles.append(el("p", "w-big", st.label), el("p", "w-line", `${pct(st.plays / stats.plays)} of my plays`));
+  const bar = el("div", "w-stack");
+  const keys = el("ul", "w-keys");
+  for (const f of stats.styles) {
+    const part = el("span");
+    part.style.setProperty("--w", `${(f.plays / stats.plays) * 100}%`);
+    part.style.setProperty("--family", COLORS[f.id] || COLORS.autre);
+    bar.append(part);
+    const li = el("li", "", `${f.label} ${pct(f.plays / stats.plays)}`);
+    li.style.setProperty("--family", COLORS[f.id] || COLORS.autre);
+    keys.append(li);
+  }
+  styles.append(bar, keys);
+
+  // 7. the clock: plays per hour of the day
+  const clock = card("w-clock", "When I listen");
+  const hh = String(stats.peak).padStart(2, "0");
+  clock.append(el("p", "w-big", `${hh}:00`), el("p", "w-line", `my busiest hour · ${pct(stats.nightShare)} of plays between midnight and 6:00`));
+  const bars = el("div", "w-hours");
+  const maxH = Math.max(1, ...stats.hours);
+  stats.hours.forEach((n, h) => {
+    const b = el("span", h === stats.peak ? "is-peak" : "");
+    b.style.setProperty("--h", `${(n / maxH) * 100}%`);
+    b.title = `${String(h).padStart(2, "0")}:00 · ${n} plays`;
+    bars.append(b);
+  });
+  const ticks = el("div", "w-hour-ticks");
+  for (const t of ["00", "06", "12", "18", "24"]) ticks.append(el("span", "", t));
+  clock.append(bars, ticks);
+
+  // 8. on repeat, 9. the longest session
+  const repeat = card("w-small", "On repeat");
+  repeat.append(el("p", "w-big", `${stats.run.n} in a row`), el("p", "w-line", `songs by ${stats.run.artist?.name || "one artist"}, one after the other`));
+  const session = card("w-small", "Longest session");
+  session.append(el("p", "w-big", duration(stats.session.minutes)), el("p", "w-line", `${stats.session.n} plays without a break of more than 20 minutes`));
+
+  root.append(total, top, song, artists, songs, styles, clock, repeat, session);
+  root.append(el("p", "w-note", `Time is estimated: Last.fm does not give the length of a song, so each play counts for ${minutesPerPlay} minutes.`));
 }

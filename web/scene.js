@@ -10,6 +10,7 @@
 // Every 3D point is turned into a pixel by hand: a rotation, then a small perspective.
 
 import { hash01 } from "./layout.js";
+import { discMethods } from "./disc.js";
 
 export const COLORS = {
   electro: "#1f8fe0",
@@ -29,12 +30,12 @@ const THEMES = {
   light: {
     ink: "#111", thread: "30, 30, 30", tick: "rgba(40, 46, 0, 0.55)", flagBg: "#111", flagFg: "#fff",
     glow: 0, halo: null, wire: "40, 40, 40", edge: "196, 92, 92", bridge: "40, 40, 70", label: "17, 17, 17",
-    tagLeaf: "#444", root: "#111",
+    tagLeaf: "#444", root: "#111", paper: "241, 241, 241",
   },
   dark: {
     ink: "#f2f2f2", thread: "235, 235, 235", tick: "rgba(20, 24, 0, 0.7)", flagBg: null, flagFg: "#f2f2f2",
     glow: 0, halo: null, wire: "225, 225, 225", edge: "222, 140, 140", bridge: "235, 235, 255", label: "242, 242, 242",
-    tagLeaf: "#f4f4f4", root: "#fff",
+    tagLeaf: "#f4f4f4", root: "#fff", paper: "13, 13, 13",
   },
 };
 const TILT = 0.34;                  // how much we look down on the spiral
@@ -45,6 +46,7 @@ export class Scene {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
+    this.colors = COLORS;
     this.mode = "spiral";
     this.t = THEMES.light;
     this.rot = 0.4;
@@ -60,6 +62,8 @@ export class Scene {
     this.panX = 0;
     this.panY = 0;
     this.target = { zoom: 1, panX: 0, panY: 0 };
+    this.pitch = 0.3;          // how much we look down on the globe
+    this.cam = null;           // { rot, pitch }: where the camera is flying to
     this.resize();
   }
 
@@ -95,6 +99,23 @@ export class Scene {
 
   resetView(zoom = 1) {
     this.target = { zoom, panX: 0, panY: 0 };
+    if (this.mode === "sphere") this.cam = { rot: this.rot, pitch: 0.3 };
+    if (this.mode === "disc") this.cam = { rot: this.rot, pitch: 0.95 };
+  }
+
+  /** Sphere: turn the globe so that this artist faces me, and come closer (like a camera flying to it). */
+  flyTo(artistId) {
+    const n = this.graph?.artistNodes.get(artistId);
+    if (!n) return;
+    const [x, y, z] = n.p;
+    const rot = Math.atan2(-x, z);                       // after this turn, the artist is straight ahead
+    const ahead = Math.hypot(x, z);
+    const pitch = Math.max(-1.2, Math.min(1.2, Math.atan2(y, ahead)));  // and level with my eyes
+    // the shortest way round
+    let d = rot - this.rot;
+    d -= TAU * Math.round(d / TAU);
+    this.cam = { rot: this.rot + d, pitch };
+    this.target = { zoom: 2.4, panX: 0, panY: 0 };
   }
 
   /** Move the view towards its target. Returns true while it is still moving. */
@@ -106,7 +127,19 @@ export class Scene {
     this.panX += (t.panX - this.panX) * a;
     this.panY += (t.panY - this.panY) * a;
     if (Math.abs(t.zoom - this.zoom) < 1e-4) this.zoom = t.zoom;
-    return Math.abs(this.zoom + this.panX + this.panY - before) > 1e-3;
+    let moving = Math.abs(this.zoom + this.panX + this.panY - before) > 1e-3;
+    if (this.unfoldTarget !== undefined && Math.abs(this.unfoldTarget - this.unfold) > 1e-3) {
+      this.unfold += (this.unfoldTarget - this.unfold) * (smooth ? 1 - Math.exp(-dt * 3) : 1);
+      moving = true;
+    }
+    if (this.cam) {
+      const b = smooth ? 1 - Math.exp(-dt * 4) : 1;
+      this.rot += (this.cam.rot - this.rot) * b;
+      this.pitch += (this.cam.pitch - this.pitch) * b;
+      if (Math.abs(this.cam.rot - this.rot) + Math.abs(this.cam.pitch - this.pitch) < 1e-3) this.cam = null;
+      moving = true;
+    }
+    return moving;
   }
 
   setTheme(theme) {
@@ -116,6 +149,9 @@ export class Scene {
   setMode(mode) {
     this.mode = mode;
     this.hovered = null;
+    // each view has its own way of looking: the globe from the side, the record from above
+    this.cam = null;
+    this.pitch = mode === "disc" ? 0.95 : 0.3;
   }
 
   resize() {
@@ -132,6 +168,7 @@ export class Scene {
     this.L = L;
     this.buildSpiral();
     this.buildGraph();
+    this.buildDisc();
   }
 
   cover(id) {
@@ -161,6 +198,7 @@ export class Scene {
     ctx.clearRect(0, 0, this.w, this.h);
     if (!this.L) return;
     if (this.mode === "sphere") this.drawSphere(time, animate);
+    else if (this.mode === "disc") this.drawDisc(time, animate);
     else this.drawSpiral(time, animate);
   }
 
@@ -171,17 +209,15 @@ export class Scene {
   buildSpiral() {
     const agg = this.L.agg;
     const now = agg.now;
-    let period;
-    let span;
-    if (agg.range === "h3") { period = 30 * 60; span = 3 * 3600; }   // one turn per half hour
-    else if (agg.range === "day") { period = 4 * 3600; span = 86400; }
-    else if (agg.range === "week") { period = 86400; span = 7 * 86400; }
-    else {
-      // all: as many turns as needed to spread the plays over about 8 turns, with a round length
-      span = Math.max(3 * 3600, (now - agg.oldest) * 1.03);
-      const NICE = [1800, 3600, 7200, 4 * 3600, 6 * 3600, 12 * 3600, 86400, 2 * 86400, 7 * 86400, 14 * 86400, 30 * 86400];
-      period = NICE.find((p) => span / p <= 8) || 30 * 86400;
-    }
+    // The spiral fits the plays, whatever the window: it runs from the first play of the
+    // period to now, in 4 to 7 turns of a round length. So the plays are spread over the
+    // whole ribbon, and never all piled on the last turn.
+    const WINDOW = { h3: 3 * 3600, day: 86400, week: 7 * 86400, all: Infinity }[agg.range] || Infinity;
+    const dataSpan = agg.scrobbles.length ? now - agg.oldest : 0;
+    const span = Math.min(WINDOW, Math.max(3600, dataSpan * 1.04));
+    const NICE = [600, 900, 1800, 3600, 2 * 3600, 3 * 3600, 4 * 3600, 6 * 3600, 12 * 3600,
+      86400, 2 * 86400, 7 * 86400, 14 * 86400, 30 * 86400];
+    const period = NICE.find((p) => span / p <= 7) || 30 * 86400;
 
     // The turns start on round times: midnight, or 0 h, 4 h, 8 h..., or 14 h, 14 h 30...
     const d = new Date(now * 1000);
@@ -208,6 +244,8 @@ export class Scene {
       turns,
       offset: marks.length ? marks[0].u : 0,
       marks,
+      // the spiral is shorter than the window: say where it starts
+      startsAt: span < WINDOW * 0.98 && agg.scrobbles.length ? now - span : null,
     };
 
     this.tiles = agg.scrobbles.map((s) => {
@@ -277,6 +315,51 @@ export class Scene {
     this.foci = new Map([...sums].map(([f, e]) => [f, e.u / e.n + (hash01(f) - 0.5) * 0.6]));
   }
 
+  /**
+   * Where each cover sits on the ribbon (t.du, in turns ago). Each cover wants its own time,
+   * t.u. Covers too close in time are pushed apart, as a group centred on their times, so
+   * they stand side by side instead of piling up. Their order never changes.
+   */
+  spreadTiles(F) {
+    const tiles = this.tiles;
+    if (!tiles.length) return;
+    const k = this.k;
+    const turnLen = TAU * F.S;                                  // pixels in one turn of the ribbon
+    const room = (0.92 * this.sp.turns * turnLen) / tiles.length;   // the most each cover can take
+    let sum = 0;
+    for (const t of tiles) {
+      t.base = Math.min((12 + 26 * t.size) * k * this.tileBoost * Math.pow(this.zoom, 0.85), Math.max(8, room));
+      sum += t.base;
+    }
+    const gap = ((sum / tiles.length) * 1.06) / turnLen;        // in turns
+    const order = [...tiles].sort((a, b) => a.u - b.u);
+    const groups = [];
+    for (const t of order) {
+      groups.push({ items: [t], sum: t.u });
+      while (groups.length > 1) {
+        const b = groups[groups.length - 1];
+        const a = groups[groups.length - 2];
+        const start = (g) => Math.max(0, g.sum / g.items.length - ((g.items.length - 1) * gap) / 2);
+        if (start(a) + a.items.length * gap <= start(b)) break;
+        a.items.push(...b.items);
+        a.sum += b.sum;
+        groups.pop();
+      }
+    }
+    for (const g of groups) {
+      const start = Math.max(0, g.sum / g.items.length - ((g.items.length - 1) * gap) / 2);
+      g.items.forEach((t, i) => { t.du = start + i * gap; });
+    }
+  }
+
+  /** "one turn = 4 hours": for the explanation under the title. */
+  turnText() {
+    const p = this.sp?.period || 86400;
+    if (p < 3600) return `${p / 60} minutes`;
+    if (p < 86400) return p === 3600 ? "1 hour" : `${p / 3600} hours`;
+    return p === 86400 ? "1 day" : `${p / 86400} days`;
+  }
+
   firstTile(id) {
     return this.tiles.find((t) => t.s.a === id) || null;
   }
@@ -338,14 +421,19 @@ export class Scene {
       items.push({ depth: p[2] - 0.01, kind: "tick", p });
     }
 
-    // 2. the covers
+    // 2. the covers, spread along the ribbon so that no two overlap
+    this.spreadTiles(F);
     for (const t of this.tiles) {
-      const p = this.spiralPoint(t.u, F);
-      t.side = (12 + 26 * t.size) * k * p[3] * this.tileBoost * Math.pow(this.zoom, 0.85);
+      const p = this.spiralPoint(t.du, F);
+      t.side = t.base * p[3];
       t.sx = p[0];
       t.sy = p[1] - t.side / 2 - 3 * p[3];
       t.depth = p[2];
       items.push({ depth: p[2], kind: "tile", t });
+    }
+    if (this.sp.startsAt) {
+      const p = this.spiralPoint(this.sp.turns, F);
+      items.push({ depth: p[2] + 0.006, kind: "flag", p, text: `from ${startFmt.format(new Date(this.sp.startsAt * 1000))}`, start: true });
     }
 
     // 3. the day labels, like little flags under the ribbon
@@ -399,6 +487,17 @@ export class Scene {
       ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.quadraticCurveTo(axisX, cy, b.sx, b.sy); ctx.stroke();
     }
 
+    //   a cover moved away from its time keeps a hairline to the exact moment on the ribbon
+    ctx.lineWidth = 0.6;
+    ctx.strokeStyle = `rgba(${this.t.thread}, 0.45)`;
+    ctx.beginPath();
+    for (const t of this.tiles) {
+      if (Math.abs(t.du - t.u) * TAU * F.S < t.base * 0.5) continue;
+      const p = this.spiralPoint(t.u, F);
+      ctx.moveTo(t.sx, t.sy + t.side / 2); ctx.lineTo(p[0], p[1]);
+    }
+    ctx.stroke();
+
     // threads of one artist
     ctx.lineWidth = 0.6;
     ctx.strokeStyle = `rgba(${this.t.thread}, 0.16)`;
@@ -437,7 +536,8 @@ export class Scene {
       } else if (it.kind === "tile") {
         this.drawTile(it.t);
       } else if (it.kind === "flag") {
-        this.flag(it.p[0], it.p[1] + 9 * k, it.text, this.t.flagBg, this.t.flagFg);
+        if (it.start) this.flag(it.p[0], it.p[1] + 9 * k, it.text, `rgb(${RIBBON})`, "#111");
+        else this.flag(it.p[0], it.p[1] + 9 * k, it.text, this.t.flagBg, this.t.flagFg);
       }
     }
 
@@ -512,7 +612,7 @@ export class Scene {
     const k = this.k;
     const s = (np ? 54 : 0) * k * Math.pow(this.zoom, 0.85);
     // the stem rises above the tallest cover near now, so the marker is never hidden
-    const near = this.tiles.filter((t) => t.u < 0.08).reduce((m, t) => Math.max(m, t.side), 0);
+    const near = this.tiles.filter((t) => t.du < 0.08).reduce((m, t) => Math.max(m, t.side), 0);
     const x = p[0];
     const stemTop = p[1] - near - 34 * k;
     const y = stemTop - s / 2;
@@ -567,18 +667,18 @@ export class Scene {
       const r = Math.sqrt(1 - yy * yy);
       const phi = i * GOLDEN + 0.6;
       const dir = norm([r * Math.cos(phi), yy * 0.8, r * Math.sin(phi)]);
-      const hub = { kind: "hub", family: sector.id, label: sector.label, p: scale(dir, 0.3), dir };
+      const hub = { kind: "hub", family: sector.id, label: sector.label, p: scale(dir, 0.4), dir };
       nodes.push(hub);
       edges.push({ a: root, b: hub, kind: "tree", family: sector.id });
 
       const members = agg.artists.filter((a) => a.family === sector.id).sort((a, b) => b.plays - a.plays);
       const [e1, e2] = basis(dir);
-      const cap = Math.min(0.95, 0.35 + 0.1 * members.length);
+      const cap = Math.min(1.25, 0.45 + 0.13 * members.length);   // the more artists, the wider they spread
       members.forEach((artist, j) => {
         const ang = j * GOLDEN + hash01(artist.id) * 0.6;
         const rho = cap * Math.sqrt((j + 0.6) / (members.length + 0.6));
         const adir = norm(add(dir, add(scale(e1, Math.cos(ang) * rho), scale(e2, Math.sin(ang) * rho))));
-        const an = { kind: "artist", artist, family: sector.id, p: scale(adir, 0.74), dir: adir };
+        const an = { kind: "artist", artist, family: sector.id, p: scale(adir, 0.86), dir: adir };
         nodes.push(an);
         artistNodes.set(artist.id, an);
         edges.push({ a: hub, b: an, kind: "tree", family: sector.id, artist: artist.id });
@@ -618,7 +718,10 @@ export class Scene {
       const leaves = [];
       for (const [title, count] of artist.trackCounts.entries()) leaves.push({ kind: "track", name: title, count });
       for (const tag of artist.tags || []) if (tagUsers.get(tag).length === 1) leaves.push({ kind: "tag", name: tag });
-      const sims = (agg.similar?.[artist.id] || []).filter((it) => !it.id && simUsers.get(it.n.toLowerCase()).users.length === 1);
+      // the 10 closest similar artists only: enough for a full fan, without the clutter
+      const sims = (agg.similar?.[artist.id] || [])
+        .filter((it) => !it.id && simUsers.get(it.n.toLowerCase()).users.length === 1)
+        .sort((a, b) => b.m - a.m).slice(0, 10);
       for (const it of sims) leaves.push({ kind: "sim", name: it.n, m: it.m });
 
       const [f1, f2] = basis(an.dir);
@@ -630,7 +733,7 @@ export class Scene {
         if (inRing >= cap) { ring += 1; inRing = 0; cap = 7 + 7 * ring; }
         const left = Math.min(cap, leaves.length - (i - inRing));
         const a = turn + (inRing / left) * TAU + ring * 0.4;
-        const R = 0.05 * (ring + 1);
+        const R = 0.045 * (ring + 1);
         const p = add(an.p, add(scale(f1, Math.cos(a) * R), add(scale(f2, Math.sin(a) * R), scale(an.dir, 0.012 * (ring + 1)))));
         const node = { kind: leaf.kind, artist, family: an.family, p, name: leaf.name, count: leaf.count, m: leaf.m };
         nodes.push(node);
@@ -661,10 +764,12 @@ export class Scene {
       bridges.push(node);
       for (const u of users) edges.push({ a: u, b: node, kind: "bridge", family: u.family, artist: u.artist.id, sub: kind });
     };
-    for (const [tag, users] of tagUsers) if (users.length > 1) addBridge("tag", tag, users, users.length);
-    for (const { name, users } of simUsers.values()) {
-      if (users.length > 1) addBridge("sim", name, users.map((u) => u.an), users.length);
-    }
+    // only the strongest bridges (shared by the most artists): the web stays readable
+    const shared = [];
+    for (const [tag, users] of tagUsers) if (users.length > 1) shared.push(["tag", tag, users]);
+    for (const { name, users } of simUsers.values()) if (users.length > 1) shared.push(["sim", name, users.map((u) => u.an)]);
+    shared.sort((a, b) => b[2].length - a[2].length).slice(0, 36)
+      .forEach(([kind, name, users]) => addBridge(kind, name, users, users.length));
 
     // the big fan in the middle: now, to every song of the last 24 hours
     for (const node of nodes) {
@@ -681,7 +786,7 @@ export class Scene {
 
   sphereProject(p, time) {
     const yaw = this.rot;
-    const pitch = 0.3 + 0.06 * Math.sin(time / 9000);
+    const pitch = this.pitch;
     let [x, y, z] = p;
     const cy = Math.cos(yaw);
     const sy = Math.sin(yaw);
@@ -697,8 +802,8 @@ export class Scene {
   drawSphere(time, animate) {
     const ctx = this.ctx;
     const k = this.k;
-    this.sphereS = Math.min(this.w, this.h * 0.92) * 0.44 * this.zoom;
-    this.sphereCy = this.h / 2 + 10;
+    this.sphereS = Math.min(this.w * 0.5, this.h * 0.47) * this.zoom;
+    this.sphereCy = this.h / 2 + 16;
     const t = animate ? time : 0;
     const g = this.graph;
     for (const node of g.nodes) node.s = this.sphereProject(node.p, t);
@@ -726,7 +831,7 @@ export class Scene {
 
     // edges: the tree in pink, the starbursts in the colour of their style, the bridges in white
     for (const e of g.edges) {
-      const dim = off(e) ? 0.12 : 1;
+      const dim = off(e) ? (hl ? 0.05 : 0.12) : 1;
       const depth = front(e.b.s);
       if (e.kind === "spoke") {
         ctx.lineWidth = 0.6;
@@ -762,7 +867,7 @@ export class Scene {
       const [x, y] = node.s;
       if (node.kind === "bridge") {
         const mine = hl && node.users.includes(hl);
-        ctx.globalAlpha = hl && !mine ? 0.1 : front(node.s);
+        ctx.globalAlpha = hl && !mine ? 0.05 : front(node.s);
         ctx.strokeStyle = `rgb(${this.t.bridge})`;
         ctx.fillStyle = `rgb(${this.t.bridge})`;
         ctx.lineWidth = 0.9;
@@ -773,7 +878,7 @@ export class Scene {
       }
       const color = COLORS[node.family] || COLORS.autre;
       const dim = node.artist ? this.dimmed(node.artist) : (this.focusFamily && node.family !== this.focusFamily);
-      ctx.globalAlpha = (dim ? 0.15 : 1) * front(node.s);
+      ctx.globalAlpha = (dim ? (hl ? 0.06 : 0.15) : 1) * front(node.s);
       ctx.fillStyle = color;
       if (node.kind === "track") ctx.fillRect(x - 1.7 * f, y - 1.7 * f, 3.4 * f, 3.4 * f);
       else if (node.kind === "play") ctx.fillRect(x - 0.9 * f, y - 0.9 * f, 1.8 * f, 1.8 * f);
@@ -798,27 +903,49 @@ export class Scene {
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
     const font = (w, size, style = "") => `${style} ${w} ${Math.round(size * Math.max(0.9, k))}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    if (!hl) {
-      ctx.font = font(700, 10);
-      for (const node of g.nodes) {
-        if (node.kind !== "hub") continue;
-        ctx.fillStyle = COLORS[node.family] || COLORS.autre;
-        ctx.fillText(node.label.toUpperCase(), node.s[0] + 6, node.s[1]);
+    // Each name is tried in order of importance, and skipped if it would cover one already written.
+    const placed = [];
+    const write = (text, x, y, fnt, color, align = "left") => {
+      ctx.font = fnt;
+      const w = ctx.measureText(text).width;
+      const h = 13;
+      const x0 = align === "left" ? x : align === "right" ? x - w : x - w / 2;
+      const box = [x0 - 3, y - h / 2 - 1, w + 6, h + 2];
+      if (placed.some((b) => box[0] < b[0] + b[2] && b[0] < box[0] + box[2] && box[1] < b[1] + b[3] && b[1] < box[1] + box[3])) return;
+      placed.push(box);
+      ctx.textAlign = align;
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = `rgba(${this.t.paper}, 0.85)`;   // a halo: readable on any line
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    };
+    if (hl) {
+      const an = g.artistNodes.get(hl);
+      if (an) {
+        write(an.artist.name, an.s[0], an.s[1] - (an.r || 6) - 12, font(800, 14), `rgb(${this.t.label})`, "center");
+        // its leaves: the name goes outwards, away from the artist, on the side of the leaf
+        const order = { track: 0, bridge: 1, sim: 2, tag: 3 };
+        const mine = g.nodes.filter((n) => (n.artist?.id === hl && n.kind in order) || (n.kind === "bridge" && n.users.includes(hl)))
+          .sort((a, b) => order[a.kind] - order[b.kind] || (b.m || 0) - (a.m || 0));
+        for (const n of mine) {
+          const dx = n.s[0] - an.s[0];
+          const dy = n.s[1] - an.s[1];
+          const d = Math.hypot(dx, dy) || 1;
+          const x = n.s[0] + (dx / d) * 6;
+          const y = n.s[1] + (dy / d) * 6;
+          const color = n.kind === "track" ? `rgb(${this.t.label})` : `rgba(${this.t.label}, 0.7)`;
+          const style = n.kind === "track" ? font(700, 11) : font(400, 10, "italic");
+          write(n.name, x, y, style, color, dx >= 0 ? "left" : "right");
+        }
       }
     } else {
-      ctx.font = font(400, 10, "italic");
-      ctx.fillStyle = `rgba(${this.t.label}, 0.8)`;
       for (const node of g.nodes) {
-        const mine = (node.artist?.id === hl && (node.kind === "sim" || node.kind === "tag" || node.kind === "track"))
-          || (node.kind === "bridge" && node.users.includes(hl));
-        if (mine) ctx.fillText(node.name, node.s[0] + 5, node.s[1]);
+        if (node.kind === "hub") write(node.label.toUpperCase(), node.s[0] + 6, node.s[1], font(700, 10), COLORS[node.family] || COLORS.autre);
       }
-    }
-    const top = [...g.artistNodes.values()].sort((a, b) => b.artist.plays - a.artist.plays).slice(0, 8);
-    for (const node of hl ? [g.artistNodes.get(hl)].filter(Boolean) : top) {
-      ctx.font = font(hl ? 700 : 500, 11);
-      ctx.fillStyle = `rgba(${this.t.label}, ${hl ? 1 : 0.85})`;
-      ctx.fillText(node.artist.name, node.s[0] + (node.r || 4) + 5, node.s[1]);
+      const top = [...g.artistNodes.values()].sort((a, b) => b.artist.plays - a.artist.plays).slice(0, 10);
+      for (const node of top) write(node.artist.name, node.s[0] + (node.r || 4) + 5, node.s[1], font(500, 11), `rgba(${this.t.label}, 0.85)`);
     }
 
     // now, in the middle
@@ -856,6 +983,7 @@ export class Scene {
       const [bx, by, bw, bh] = this.nowBox;
       if (x >= bx - 4 && x <= bx + bw + 4 && y >= by - 4 && y <= by + bh + 4) return { type: "now" };
     }
+    if (this.mode === "disc") return this.hitDisc(x, y);
     if (this.mode === "sphere") {
       let best = null;
       let bestD = 14 * 14;
@@ -884,6 +1012,10 @@ export class Scene {
     if (!target) return null;
     if (target.type === "now") return this.nowAt ? [this.nowAt[0], this.nowAt[1] - 40] : null;
     if (target.type !== "node") return null;
+    if (this.mode === "disc") {
+      const sl = target.slice || this.disc?.slices.find((x) => x.plays.some((p) => p.a === target.node.artist.id));
+      return sl?.screen ? [sl.screen[0], sl.screen[1]] : null;
+    }
     if (this.mode === "sphere") {
       const n = this.graph?.artistNodes.get(target.node.artist.id);
       return n?.s ? [n.s[0], n.s[1]] : null;
@@ -893,10 +1025,14 @@ export class Scene {
   }
 }
 
+// the record view lives in disc.js: its functions become methods of Scene
+Object.assign(Scene.prototype, discMethods);
+
 // ---------- small helpers ----------
 
 const dayFmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric" });
 const monthFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
+const startFmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 function label(ts, period) {
   const d = new Date(ts * 1000);

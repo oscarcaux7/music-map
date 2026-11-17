@@ -10,7 +10,7 @@ Inspirations : l'affiche « Interaktionsgestaltung » de la HfG Schwäbisch Gmü
 
 | Ce qu'on voit | Ce que ça veut dire | Où c'est calculé |
 |---|---|---|
-| un tour de ruban | une demi-heure (3 h), 4 heures (24 h) ou un jour (7 jours) | `buildSpiral` dans `web/scene.js` |
+| un tour de ruban | une durée ronde (10 min … 30 jours), choisie pour que la spirale aille de ma première écoute de la période à maintenant en 4 à 7 tours | `buildSpiral` dans `web/scene.js` |
 | hauteur sur la spirale | il y a combien de temps : le ruban commence à maintenant (le bout en haut, avec un rond et `NOW`) et descend vers le passé | `spiralPoint` dans `web/scene.js` |
 | pochette | une écoute ; plus l'artiste est écouté, plus elle est grande | `drawSpiral` dans `web/scene.js` |
 | drapeau | début d'un tour (`Tue 17`, `14:30`) ; dans « All », la durée d'un tour s'adapte pour étaler les écoutes sur environ 8 tours | `marks` dans `buildSpiral` |
@@ -30,7 +30,17 @@ Inspirations : l'affiche « Interaktionsgestaltung » de la HfG Schwäbisch Gmü
 | losanges et cercles blancs à l'intérieur | des ponts : un tag ou un artiste proche partagé par plusieurs de mes artistes |
 | arcs verts | deux artistes que j'écoute et que Last.fm trouve proches |
 
-Tout est calculé dans `buildGraph` et dessiné dans `drawSphere` (`web/scene.js`).
+Tout est calculé dans `buildGraph` et dessiné dans `drawSphere` (`web/scene.js`). Au survol, le reste s'efface et les noms sont placés sans se chevaucher ; au clic, la caméra vole vers l'artiste (`flyTo` : on tourne le globe pour que l'artiste soit en face, puis on zoome).
+
+La spirale s'adapte aux écoutes : quelle que soit la fenêtre, elle va de la première écoute de la période à maintenant, en 4 à 7 tours d'une durée ronde. Les pochettes trop proches dans le temps sont écartées en groupe, centrées sur leurs heures (`spreadTiles`), et un trait fin montre l'heure exacte de celles qui ont dû bouger.
+
+## Le disque (troisième vue)
+
+D'après « Music CD checkouts from the Seattle Public Library » (Will Sheppard) : le temps est le sillon d'un disque, de ma première écoute (au centre) à maintenant (au bord), coupé en 360 tranches. Chaque tranche est une barre : ses couleurs empilent les styles écoutés, sa longueur suit le nombre d'écoutes (en log, pour qu'une seule écoute se voie). Un trait fin sur chaque tranche montre la densité lissée (une moyenne gaussienne), comme les sillons. Le curseur déplie le disque en cône. Code : `web/disc.js`.
+
+## Wrapped
+
+Sous le dessin, la période en quelques chiffres (`web/stats.js`) : écoutes, temps estimé, artiste et chanson les plus écoutés, top 5, styles, heure la plus chargée, plus longue série d'un même artiste, plus longue session (écoutes à moins de 20 min d'intervalle). Last.fm ne donne pas la durée des morceaux : le temps est estimé à 3 min 30 par écoute, et la page le dit.
 
 ## Le chemin d'une requête
 

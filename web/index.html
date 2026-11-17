@@ -15,6 +15,7 @@
       <div class="range" role="group" aria-label="View">
         <button type="button" data-view="spiral" aria-pressed="true">Spiral</button>
         <button type="button" data-view="sphere" aria-pressed="false">Sphere</button>
+        <button type="button" data-view="disc" aria-pressed="false">Disc</button>
         <button type="button" id="theme" aria-pressed="false">Dark</button>
       </div>
       <div class="range" role="group" aria-label="Period shown">
@@ -58,6 +59,7 @@
       </article>
 
       <div class="zoom" role="group" aria-label="Zoom">
+        <label class="unfold"><span>Flat</span><input type="range" id="unfold" min="0" max="100" value="45" aria-label="Unfold the disc into a cone"><span>Cone</span></label>
         <button type="button" id="turn-left" aria-label="Turn left">⟲</button>
         <button type="button" id="turn-right" aria-label="Turn right">⟳</button>
         <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
@@ -71,13 +73,18 @@
 
     <nav class="legend" id="legend" aria-label="Styles: click one to isolate it"></nav>
 
+    <section class="wrapped" aria-labelledby="wrapped-title">
+      <h2 id="wrapped-title">Wrapped <span id="wrapped-period">The last 7 days</span></h2>
+      <div class="w-grid" id="wrapped"></div>
+    </section>
+
     <section class="tape-section" aria-labelledby="tape-title">
       <h2 id="tape-title">Last plays</h2>
       <ol class="board" id="tape"></ol>
     </section>
 
     <details class="table-view">
-      <summary>Voir les artistes en liste</summary>
+      <summary>See the artists as a list</summary>
       <table>
         <thead><tr><th scope="col">Artist</th><th scope="col">Style</th><th scope="col" class="num">Plays</th><th scope="col">Last played</th></tr></thead>
         <tbody id="table"></tbody>

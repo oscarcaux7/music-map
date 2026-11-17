@@ -1,10 +1,10 @@
 # The map of my plays
 
-My recent music from Last.fm, drawn two ways. A button switches between them.
+My recent music from Last.fm, drawn three ways, with a "wrapped" of the period underneath. Buttons switch between them.
 
 **Spiral** (after the timeline poster of the HfG Schwäbisch Gmünd)
 
-- **Time winds down a green ribbon.** One turn per half hour (3 h), per 4 hours (24 h) or per day (7 days); in "All", the length of a turn adapts so the plays spread over about 8 turns. The ribbon starts at **now**, its top end, marked by a round cap and a `NOW` flag, and winds down into the past.
+- **Time winds down a green ribbon.** The spiral fits my plays: whatever the window (3 h, 24 h, 7 days, all), it runs from my first play of the period to now, in 4 to 7 turns of a round length (10 minutes … 30 days). A flag says where it starts when it is shorter than the window. Covers close in time stand side by side instead of piling up; a hairline points to the exact time of a cover that had to move. The ribbon starts at **now**, its top end, marked by a round cap and a `NOW` flag, and winds down into the past.
 - **Each play is its album cover**, sitting on the ribbon. Flags mark the turns (`Tue 17`, `14:30`). Ticks mark every hour, or every 5 minutes in the 3 h view.
 - **The grey web is the correlations.** Vertical lines drop from each cover to the loop below; every play of a style is pulled to one point on the axis, so the bundles cross in the middle; each play is joined to the plays of other artists that share its Last.fm tags, by a curve through the inside of the spiral; plays of the same artist are chained. When many plays share one turn, the covers shrink so the links stay visible.
 - **The song playing now** sits above the spiral, with a pulsing frame.
@@ -12,9 +12,18 @@ My recent music from Last.fm, drawn two ways. A button switches between them.
 **Sphere** (after the hyperbolic graph viewers, and network "starburst" graphs)
 
 - **A tree inside a wireframe globe.** Now is the centre; then the styles; then my artists; then a starburst around each artist with its songs, one dot per play, its tags and up to 30 similar artists from Last.fm.
-- **Bridges** inside the globe are tags or similar artists shared by several of my artists: they draw the web between the clusters. **Green arcs** join two artists I played that Last.fm finds similar.
+- **Bridges** inside the globe are the strongest tags or similar artists shared by several of my artists: they draw the web between the clusters. **Green arcs** join two artists I played that Last.fm finds similar.
+- **Hover** an artist: the rest fades away and its songs, tags and similar artists are named, without overlap. **Click** it: the camera flies to it.
 
-Both views fill the screen, with a thin header bar on top, and follow the light or dark theme. Both turn, move and zoom: drag to move, right-drag or Shift-drag to turn, Ctrl + wheel, pinch or double-click to zoom. Hover or tap a cover or a point for its card. Under the drawing, a pin board of the last songs and a table of the artists show the same data without the drawing. Light and dark themes.
+**Disc** (after Will Sheppard's *Music CD checkouts from the Seattle Public Library*)
+
+- **Time is the groove of a record**, from my first play of the period (centre) to now (edge). It is cut into 360 slices of time.
+- **Each slice is a bar**: its colours stack the styles I played in it, its length grows with the plays (log scale). A fine line on every slice shows the smoothed density, like the grooves of the record.
+- **A slider unfolds the disc into a cone**: the past sinks into the middle, the bars rise like an equalizer.
+
+**Wrapped**, under the drawing: the plays and the estimated time of the period, the top artist on its cover, the top song, the top 5 artists and songs, the styles, the busiest hour, the longest run of one artist and the longest session. Last.fm does not give the length of a song, so time is estimated at 3½ minutes per play, and the page says so.
+
+All views fill the screen, with a thin header bar on top, and follow the light or dark theme. Both turn, move and zoom: drag to move, right-drag or Shift-drag to turn, Ctrl + wheel, pinch or double-click to zoom. Hover or tap a cover or a point for its card. Under the drawing, a pin board of the last songs and a table of the artists show the same data without the drawing. Light and dark themes.
 
 ## Start it
 
@@ -73,8 +82,10 @@ The server uses the Python standard library only, and the page plain JavaScript 
 | `web/main.js` | loading, views, pointer, zoom, keyboard, theme, refresh every minute |
 | `web/data.js` | the request to `/api/map`, counting per period |
 | `web/layout.js` | the styles, the artists, the links between artists that share a tag |
-| `web/scene.js` | the spiral and the sphere, drawn on a canvas by hand (3D projection, zoom) |
-| `web/ui.js` | the card, the legend, the pin board, the table, the messages |
+| `web/scene.js` | the spiral and the sphere, drawn on a canvas by hand (3D projection, zoom, camera) |
+| `web/disc.js` | the disc view: the record of time and its bars |
+| `web/stats.js` | the numbers of the "wrapped" section |
+| `web/ui.js` | the card, the legend, the wrapped cards, the pin board, the table, the messages |
 
 ## Check the rules
 
