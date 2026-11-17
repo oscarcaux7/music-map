@@ -50,13 +50,13 @@ function schedule(ms) {
 function handleError(error) {
   if (state.data) {
     // We already have a map: keep it, and say that it is not fresh.
-    ui.setStatusText(`${error.message} La carte montre les dernières écoutes reçues.`, true);
+    ui.setStatusText(`${error.message} The map shows the last plays received.`, true);
     return;
   }
-  const title = error.kind === "lastfm" ? "Last.fm ne répond pas" : "Le serveur ne répond pas";
-  ui.showMessage(title, `${error.message} Nouvel essai dans ${error.retryIn} secondes.`, {
-    label: "Réessayer maintenant",
-    run: () => { ui.setStatusText("Nouvel essai…"); load(); },
+  const title = error.kind === "lastfm" ? "Last.fm does not answer" : "The server does not answer";
+  ui.showMessage(title, `${error.message} Trying again in ${error.retryIn} seconds.`, {
+    label: "Try again now",
+    run: () => { ui.setStatusText("Trying again…"); load(); },
   });
   ui.setStatusText(title + ".", true);
   scene.setLayout(emptyLayout());
@@ -88,9 +88,9 @@ function rebuild() {
   if (!agg.scrobbles.length) {
     const wider = state.range !== "all";
     ui.showMessage(
-      "Pas encore d'écoute sur cette période",
-      "Lance une chanson : elle apparaîtra au centre de la carte, puis s'éloignera avec le temps.",
-      wider ? { label: "Voir toutes les écoutes", run: () => setRange("all") } : null,
+      "No plays in this period yet",
+      "Play a song: it appears at the top of the spiral, then moves down as time goes by.",
+      wider ? { label: "See all plays", run: () => setRange("all") } : null,
     );
   } else {
     ui.hideMessage();
@@ -101,10 +101,10 @@ function rebuild() {
 // ---------- controls ----------
 
 const RANGE_TITLES = {
-  h3: "Les 3 dernières heures",
-  day: "Les dernières 24 heures",
-  week: "Les 7 derniers jours",
-  all: "Toutes mes écoutes",
+  h3: "The last 3 hours",
+  day: "The last 24 hours",
+  week: "The last 7 days",
+  all: "All my plays",
 };
 
 function setRange(range) {
@@ -120,8 +120,8 @@ document.querySelectorAll("[data-range]").forEach((b) =>
   b.addEventListener("click", () => setRange(b.dataset.range)));
 
 const KEYS = {
-  spiral: "Une spirale du temps, le plus récent en haut : un tour par demi-heure (3 h), par 4 heures (24 h) ou par jour (7 jours). Chaque pochette est une écoute, posée sur le ruban. Les fils gris relient les écoutes d'un même artiste.",
-  sphere: "Un réseau dans un globe : au centre, maintenant. Puis les styles, les artistes, leurs titres, et chaque écoute en éventail. Le grand éventail central relie les artistes des dernières 24 h. Autour, en cercles vides, les artistes proches que je n'ai pas encore écoutés ; les arcs verts relient deux artistes écoutés qui se ressemblent.",
+  spiral: "A spiral of time, newest at the top end: one turn per half hour (3 h), per 4 hours (24 h) or per day (7 days). Each cover is a play, sitting on the ribbon. The grey threads join plays that share an artist, a style or tags.",
+  sphere: "A network in a globe: now in the centre, then the styles, my artists, and around each artist a starburst of its songs, tags and similar artists. White bridges are tags or similar artists shared by several of my artists; green arcs join two artists I play that sound alike.",
 };
 
 function setView(view) {
@@ -137,8 +137,8 @@ function setView(view) {
   stage.classList.toggle("is-sphere", view === "sphere");
   document.getElementById("key").textContent = KEYS[view];
   document.getElementById("hint").textContent = view === "sphere"
-    ? "Glisse pour te déplacer · clic droit ou Maj + glisser pour tourner · Ctrl + molette pour zoomer"
-    : "Glisse pour te déplacer · clic droit ou Maj + glisser pour tourner · Ctrl + molette pour zoomer";
+    ? "Drag to move · right-drag or Shift + drag to turn · Ctrl + wheel to zoom"
+    : "Drag to move · right-drag or Shift + drag to turn · Ctrl + wheel to zoom";
   try { localStorage.setItem("view", view); } catch { /* private mode */ }
   state.dirty = true;
 }

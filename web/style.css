@@ -33,6 +33,47 @@
   color-scheme: dark;
 }
 
+/* dark: no inverted white chips; plain white text, light and airy */
+:root[data-theme="dark"] .hint,
+:root[data-theme="dark"] .card-value,
+:root[data-theme="dark"] .tape-section h2,
+:root[data-theme="dark"] .table-view summary,
+:root[data-theme="dark"] .legend button[aria-pressed="true"],
+:root[data-theme="dark"] .message button {
+  background: transparent;
+  color: var(--ink);
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+:root[data-theme="dark"] .tape-section h2,
+:root[data-theme="dark"] .table-view summary { padding-left: 0; text-transform: uppercase; font-size: 14px; letter-spacing: 0.14em; }
+:root[data-theme="dark"] .card-value { padding-left: 0; text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; }
+:root[data-theme="dark"] .legend button[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--ink); font-weight: 500; }
+:root[data-theme="dark"] .message button { box-shadow: inset 0 0 0 1px var(--ink); }
+:root[data-theme="dark"] .stage.is-sphere .hint { background: transparent; color: #f2f2f2; }
+
+@media (prefers-color-scheme: dark) {
+
+:root:not([data-theme="light"]) .hint,
+:root:not([data-theme="light"]) .card-value,
+:root:not([data-theme="light"]) .tape-section h2,
+:root:not([data-theme="light"]) .table-view summary,
+:root:not([data-theme="light"]) .legend button[aria-pressed="true"],
+:root:not([data-theme="light"]) .message button {
+  background: transparent;
+  color: var(--ink);
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+:root:not([data-theme="light"]) .tape-section h2,
+:root:not([data-theme="light"]) .table-view summary { padding-left: 0; text-transform: uppercase; font-size: 14px; letter-spacing: 0.14em; }
+:root:not([data-theme="light"]) .card-value { padding-left: 0; text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; }
+:root:not([data-theme="light"]) .legend button[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--ink); font-weight: 500; }
+:root:not([data-theme="light"]) .message button { box-shadow: inset 0 0 0 1px var(--ink); }
+:root:not([data-theme="light"]) .stage.is-sphere .hint { background: transparent; color: #f2f2f2; }
+
+}
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
@@ -68,7 +109,7 @@ button { font: inherit; color: inherit; }
   pointer-events: none;      /* the drawing under the bar stays usable */
 }
 .top > * { pointer-events: auto; }
-body[data-view="spiral"] .top { position: absolute; top: 0; left: 0; right: 0; }
+body[data-view] .top { position: absolute; top: 0; left: 0; right: 0; }   /* both views: the bar floats over the drawing */
 
 /* one quiet line: title · user · period · status. The visuals do the talking. */
 .title {
@@ -102,6 +143,7 @@ body[data-view="spiral"] .top { position: absolute; top: 0; left: 0; right: 0; }
   font-weight: 500;
   color: var(--ink-2);
   cursor: pointer;
+  white-space: nowrap;      /* "3 h", "7 days": never on two lines */
 }
 .range button[aria-pressed="true"] { color: var(--ink); font-weight: 700; box-shadow: inset 0 -2px 0 var(--ribbon); }
 .range button:hover:not([aria-pressed="true"]) { color: var(--ink); }
@@ -109,13 +151,7 @@ body[data-view="spiral"] .top { position: absolute; top: 0; left: 0; right: 0; }
 /* ---------- the drawing ---------- */
 
 .stage { position: relative; margin: 0; }
-.stage.is-spiral { height: max(680px, 100vh); }
-.stage.is-sphere {
-  height: clamp(480px, 82vh, 920px);
-  margin: 20px clamp(16px, 4vw, 48px) 0;
-  background: #000;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 24px 60px -30px rgba(0, 0, 0, 0.6);
-}
+.stage.is-spiral, .stage.is-sphere { height: max(680px, 100vh); }   /* both views fill the screen, on the page itself */
 
 #map {
   display: block;
@@ -139,7 +175,6 @@ body[data-view="spiral"] .top { position: absolute; top: 0; left: 0; right: 0; }
   background: var(--ink);
   pointer-events: none;
 }
-.stage.is-sphere .hint { bottom: 34px; left: 12px; background: #e9e9e9; color: #111; }
 
 /* zoom buttons, bottom right of the drawing */
 .zoom {
@@ -149,7 +184,6 @@ body[data-view="spiral"] .top { position: absolute; top: 0; left: 0; right: 0; }
   display: flex;
   gap: 4px;
 }
-.stage.is-sphere .zoom { right: 12px; bottom: 34px; }
 .zoom button {
   min-width: 34px;
   height: 34px;
@@ -356,10 +390,10 @@ body[data-view="spiral"] .top { position: absolute; top: 0; left: 0; right: 0; }
 
 @media (max-width: 640px) {
   .top { padding-top: 18px; }
-  .top, body[data-view="spiral"] .top { position: relative; flex-direction: column-reverse; }
+  .top, body[data-view] .top { position: relative; flex-direction: column-reverse; }
   .title { margin-top: 0; max-width: none; }
   .stage.is-spiral { height: 88vh; margin-top: 0; }
-  .stage.is-sphere { height: min(120vw, 70vh); min-height: 360px; margin: 16px 0 0; }
+  .stage.is-sphere { height: 88vh; margin-top: 0; }
   .hint { display: none; }
   .card {
     position: fixed;

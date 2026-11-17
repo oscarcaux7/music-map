@@ -1,20 +1,20 @@
-# La carte de mes écoutes
+# The map of my plays
 
 My recent music from Last.fm, drawn two ways. A button switches between them.
 
-**Spirale** (after the timeline poster of the HfG Schwäbisch Gmünd)
+**Spiral** (after the timeline poster of the HfG Schwäbisch Gmünd)
 
-- **Time winds down a green ribbon.** One turn per half hour (3 h), per 4 hours (24 h) or per day (7 days). The newest song is at the top; above it the ribbon opens into wide, empty loops: the time to come.
-- **Each play is its album cover**, sitting on the ribbon. Black flags mark the turns (`mar. 17`, `14 h 30`). Ticks mark every hour, or every 5 minutes in the 3 h view.
-- **The grey web is the correlations.** Vertical lines drop from each cover to the loop below; every play of a style is pulled to one point on the axis, so the bundles cross in the middle; each play is joined to the plays of other artists that share its Last.fm tags; plays of the same artist are chained.
+- **Time winds down a green ribbon.** One turn per half hour (3 h), per 4 hours (24 h) or per day (7 days); in "All", the length of a turn adapts so the plays spread over about 8 turns. The ribbon starts at **now**, its top end, marked by a round cap and a `NOW` flag, and winds down into the past.
+- **Each play is its album cover**, sitting on the ribbon. Flags mark the turns (`Tue 17`, `14:30`). Ticks mark every hour, or every 5 minutes in the 3 h view.
+- **The grey web is the correlations.** Vertical lines drop from each cover to the loop below; every play of a style is pulled to one point on the axis, so the bundles cross in the middle; each play is joined to the plays of other artists that share its Last.fm tags, by a curve through the inside of the spiral; plays of the same artist are chained. When many plays share one turn, the covers shrink so the links stay visible.
 - **The song playing now** sits above the spiral, with a pulsing frame.
 
-**Sphère** (after the hyperbolic graph viewers, and network "starburst" graphs)
+**Sphere** (after the hyperbolic graph viewers, and network "starburst" graphs)
 
 - **A tree inside a wireframe globe.** Now is the centre; then the styles; then my artists; then a starburst around each artist with its songs, one dot per play, its tags and up to 30 similar artists from Last.fm.
 - **Bridges** inside the globe are tags or similar artists shared by several of my artists: they draw the web between the clusters. **Green arcs** join two artists I played that Last.fm finds similar.
 
-Both views turn, move and zoom: drag to move, right-drag or Shift-drag to turn, Ctrl + wheel, pinch or double-click to zoom. Hover or tap a cover or a point for its card. Under the drawing, a pin board of the last songs and a table of the artists show the same data without the drawing. Light and dark themes.
+Both views fill the screen, with a thin header bar on top, and follow the light or dark theme. Both turn, move and zoom: drag to move, right-drag or Shift-drag to turn, Ctrl + wheel, pinch or double-click to zoom. Hover or tap a cover or a point for its card. Under the drawing, a pin board of the last songs and a table of the artists show the same data without the drawing. Light and dark themes.
 
 ## Start it
 

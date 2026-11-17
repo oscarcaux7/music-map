@@ -13,15 +13,15 @@ import hashlib
 # Order matters twice: it is the order of the regions around the map,
 # and it is the order in which a tag is tested (rap before rock, and so on).
 FAMILIES = [
-    ("electro", "Électro"),
+    ("electro", "Electronic"),
     ("rap", "Rap"),
-    ("folk", "Folk et indé"),
+    ("folk", "Folk and indie"),
     ("rock", "Rock"),
     ("soul", "Soul, jazz, funk"),
-    ("classique", "Classique et BO"),
-    ("monde", "Musiques du monde"),
+    ("classique", "Classical and scores"),
+    ("monde", "World"),
     ("pop", "Pop"),
-    ("autre", "Autre"),
+    ("autre", "Other"),
 ]
 FAMILY_LABELS = dict(FAMILIES)
 

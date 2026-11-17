@@ -115,7 +115,7 @@ class MapService:
             "ttl": self.recent_ttl,
         }
         if status == "stale":
-            payload["error"] = "Last.fm ne répond pas. Ce sont les dernières écoutes reçues."
+            payload["error"] = "Last.fm does not answer. These are the last plays received."
         return payload, status
 
     # ---------- artist styles ----------

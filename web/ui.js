@@ -33,7 +33,7 @@ function initials(name) {
 }
 
 function familyLabel(L, id) {
-  return L.sectors.find((s) => s.id === id)?.label || "Autre";
+  return L.sectors.find((s) => s.id === id)?.label || "Other";
 }
 
 // ---------- card ----------
@@ -49,19 +49,19 @@ export function showCard(target, L, position, pinned) {
     if (target.tile) {
       const s = target.tile.s;
       $("card-line1").textContent = s.t;
-      $("card-line2").textContent = `Écouté ${clock(s.ts, agg.now)}${s.al ? " · " + s.al : ""}`;
+      $("card-line2").textContent = `Played ${clock(s.ts, agg.now)}${s.al ? " · " + s.al : ""}`;
       coverInto($("card-cover"), s.c || artist.cover, artist.name);
     } else {
-      $("card-line1").textContent = artist.topTrack ? `Le plus écouté : ${artist.topTrack}` : "";
-      $("card-line2").textContent = `Dernière écoute ${ago(agg.now - artist.last)}`;
+      $("card-line1").textContent = artist.topTrack ? `Most played: ${artist.topTrack}` : "";
+      $("card-line2").textContent = `Last played ${ago(agg.now - artist.last)}`;
       coverInto($("card-cover"), artist.cover, artist.name);
     }
   } else if (target.type === "now") {
     const np = agg.nowPlaying;
     artist = np?.artist;
-    $("card-value").textContent = np ? "En ce moment" : "Silence";
-    $("card-name").textContent = np ? np.t : "Rien ne joue en ce moment";
-    $("card-line1").textContent = np ? artist?.name || "" : "Lance une chanson : elle apparaîtra ici.";
+    $("card-value").textContent = np ? "Playing now" : "Silence";
+    $("card-name").textContent = np ? np.t : "Nothing is playing right now";
+    $("card-line1").textContent = np ? artist?.name || "" : "Play a song: it will appear here.";
     $("card-line2").textContent = np && np.al ? np.al : "";
     coverInto($("card-cover"), np?.c, np ? np.t : "");
   } else {
@@ -118,7 +118,7 @@ export function renderTape(L, onPoint) {
   tape.replaceChildren();
   const agg = L.agg;
   if (!agg.scrobbles.length) {
-    tape.append(el("li", "empty", "Aucune écoute sur cette période."));
+    tape.append(el("li", "empty", "No plays in this period."));
     return;
   }
   for (const s of agg.scrobbles.slice(0, 48)) {
@@ -132,7 +132,7 @@ export function renderTape(L, onPoint) {
     coverInto(thumb, s.c, s.t);
     button.append(thumb, el("span", "t-track", s.t), el("span", "t-artist", artist?.name || ""),
       el("span", "t-time", clock(s.ts, agg.now)));
-    button.setAttribute("aria-label", `${s.t}, ${artist?.name || ""}, ${clock(s.ts, agg.now)}. Montrer sur la carte.`);
+    button.setAttribute("aria-label", `${s.t}, ${artist?.name || ""}, ${clock(s.ts, agg.now)}. Show on the map.`);
     const point = () => onPoint(s.a);
     button.addEventListener("pointerenter", point);
     button.addEventListener("focus", point);
@@ -167,15 +167,15 @@ export function renderStatus(data, fetchedAtLocal) {
   if (!data) return;
   const age = (Date.now() - fetchedAtLocal) / 1000 + (data.cache?.age || 0);
   if (data.source === "demo") {
-    status.textContent = "Données de démonstration. Ajoute ta clé Last.fm dans .env pour voir tes vraies écoutes.";
+    status.textContent = "Demo data. Add your Last.fm key in .env to see your real plays.";
   } else if (data.cache?.status === "stale") {
     status.classList.add("is-stale");
-    status.textContent = `Last.fm ne répond pas. Écoutes reçues ${ago(age)}.`;
+    status.textContent = `Last.fm does not answer. Plays received ${ago(age)}.`;
   } else {
-    status.textContent = `Écoutes de ${data.user} sur Last.fm, mises à jour ${ago(age)}.`;
+    status.textContent = `Plays of ${data.user} on Last.fm, updated ${ago(age)}.`;
   }
-  $("foot-user").textContent = data.source === "demo" ? "démonstration" : `Last.fm (${data.user})`;
-  $("title-user").textContent = data.source === "demo" ? "démonstration" : data.user;
+  $("foot-user").textContent = data.source === "demo" ? "demo data" : `Last.fm (${data.user})`;
+  $("title-user").textContent = data.source === "demo" ? "demo" : data.user;
 }
 
 export function showMessage(title, text, action) {

@@ -28,11 +28,13 @@ const RIBBON = "197, 216, 58";      // the chartreuse band of the spiral
 const THEMES = {
   light: {
     ink: "#111", thread: "30, 30, 30", tick: "rgba(40, 46, 0, 0.55)", flagBg: "#111", flagFg: "#fff",
-    glow: 0, halo: null, sphereBg: ["#000", "#000"], strip: "#e9e9e9", stripInk: "#222", wire: "225, 225, 225",
+    glow: 0, halo: null, wire: "40, 40, 40", edge: "196, 92, 92", bridge: "40, 40, 70", label: "17, 17, 17",
+    tagLeaf: "#444", root: "#111",
   },
   dark: {
-    ink: "#f2f2f2", thread: "235, 235, 235", tick: "rgba(20, 24, 0, 0.7)", flagBg: "#f2f2f2", flagFg: "#111",
-    glow: 0, halo: null, sphereBg: ["#000", "#000"], strip: "#e9e9e9", stripInk: "#222", wire: "225, 225, 225",
+    ink: "#f2f2f2", thread: "235, 235, 235", tick: "rgba(20, 24, 0, 0.7)", flagBg: null, flagFg: "#f2f2f2",
+    glow: 0, halo: null, wire: "225, 225, 225", edge: "222, 140, 140", bridge: "235, 235, 255", label: "242, 242, 242",
+    tagLeaf: "#f4f4f4", root: "#fff",
   },
 };
 const TILT = 0.34;                  // how much we look down on the spiral
@@ -175,14 +177,16 @@ export class Scene {
     else if (agg.range === "day") { period = 4 * 3600; span = 86400; }
     else if (agg.range === "week") { period = 86400; span = 7 * 86400; }
     else {
-      span = Math.max(86400, (now - agg.oldest) * 1.02);
-      period = 86400 * Math.max(1, Math.ceil(span / 86400 / 9));
+      // all: as many turns as needed to spread the plays over about 8 turns, with a round length
+      span = Math.max(3 * 3600, (now - agg.oldest) * 1.03);
+      const NICE = [1800, 3600, 7200, 4 * 3600, 6 * 3600, 12 * 3600, 86400, 2 * 86400, 7 * 86400, 14 * 86400, 30 * 86400];
+      period = NICE.find((p) => span / p <= 8) || 30 * 86400;
     }
 
     // The turns start on round times: midnight, or 0 h, 4 h, 8 h..., or 14 h, 14 h 30...
     const d = new Date(now * 1000);
     if (period < 86400) {
-      const stepMin = period / 60;
+      const stepMin = period / 60;   // 30, 60, 120, 240, 360 or 720 minutes
       const minutes = Math.floor((d.getHours() * 60 + d.getMinutes()) / stepMin) * stepMin;
       d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
     } else {
@@ -219,6 +223,12 @@ export class Scene {
 
     // fewer plays: bigger covers
     this.tileBoost = this.tiles.length < 60 ? 1.45 : this.tiles.length < 120 ? 1.2 : 1;
+    //   many plays on one turn (7 days, when I listened mostly today): smaller covers,
+    //   so they stop piling up and the links between them stay visible
+    const perTurn = new Map();
+    for (const t of this.tiles) perTurn.set(Math.floor(t.u), (perTurn.get(Math.floor(t.u)) || 0) + 1);
+    const crowd = Math.max(0, ...perTurn.values());
+    if (crowd > 16) this.tileBoost *= Math.max(0.42, Math.sqrt(16 / crowd));
 
     // threads: each play to the previous play of the same artist
     this.threads = [];
@@ -275,8 +285,10 @@ export class Scene {
     const { turns } = this.sp;
     const pitch = 0.42;
     const H = pitch * Math.max(turns, 1);
-    const S = Math.min(this.w * 0.4, (this.h * 0.92) / (H * Math.cos(TILT) + 2.2 * Math.sin(TILT) + 0.3));
-    return { S: S * this.zoom, pitch, top: H / 2 + 0.05 };
+    // room at the top for the header bar and the "now" marker, which stands above the spiral
+    const room = 150 * this.k;
+    const S = Math.min(this.w * 0.4, (this.h * 0.92 - room) / (H * Math.cos(TILT) + 2.2 * Math.sin(TILT) + 0.3));
+    return { S: S * this.zoom, pitch, top: H / 2 + 0.05, cy: this.h / 2 + room / 2 };
   }
 
   /** u: turns ago. Returns [x, y, depth, perspective]. */
@@ -294,7 +306,7 @@ export class Scene {
     const f = 5 / (5 - z);
     return [
       this.w / 2 + this.panX + x * F.S * f,
-      this.h / 2 + this.panY - y * Math.cos(TILT) * F.S + z * Math.sin(TILT) * F.S * f,
+      F.cy + this.panY - y * Math.cos(TILT) * F.S + z * Math.sin(TILT) * F.S * f,
       z,
       f,
     ];
@@ -308,15 +320,14 @@ export class Scene {
     const hlArtist = this.hovered?.type === "node" ? this.hovered.node.artist.id : null;
 
     // 1. the ribbon, cut in small pieces so that covers can pass in front and behind
-    const FUTURE = 1.7;  // how many loose loops above now
-    const steps = Math.max(60, Math.ceil((this.sp.turns + FUTURE) * 140));
+    //    It starts at now (u = 0, the top end) and winds down into the past.
+    const steps = Math.max(60, Math.ceil(this.sp.turns * 140));
     const end = this.sp.turns + 0.01;
-    let prev = this.spiralPoint(-FUTURE, F);
+    let prev = this.spiralPoint(0, F);
     for (let i = 1; i <= steps; i++) {
-      const u = -FUTURE + (end + FUTURE) * (i / steps);
+      const u = end * (i / steps);
       const p = this.spiralPoint(u, F);
-      const fade = u < 0 ? 0.35 + 0.65 * (1 + u / FUTURE) : 1;
-      items.push({ depth: (p[2] + prev[2]) / 2 - 0.02, kind: "rib", a: prev, b: p, fade, thin: u < 0 });
+      items.push({ depth: (p[2] + prev[2]) / 2 - 0.02, kind: "rib", a: prev, b: p, fade: 1, thin: false });
       prev = p;
     }
     // hour ticks
@@ -360,7 +371,7 @@ export class Scene {
     // the web of correlations, first, under everything
     ctx.lineCap = "round";
     const axisX = this.w / 2 + this.panX;
-    const axisY = (u) => this.h / 2 + this.panY - (F.top - u * F.pitch) * Math.cos(TILT) * F.S;
+    const axisY = (u) => F.cy + this.panY - (F.top - u * F.pitch) * Math.cos(TILT) * F.S;
     const fade = (t) => (hlArtist ? (t.s.a === hlArtist ? 3 : 0.35) : this.focusFamily ? (t.artist?.family === this.focusFamily ? 1.6 : 0.3) : 1);
     //   vertical drops, from each cover down to the loop under it
     ctx.lineWidth = 0.6;
@@ -383,7 +394,9 @@ export class Scene {
     for (const [a, b] of this.corr) {
       const f = Math.max(fade(a), fade(b));
       ctx.strokeStyle = `rgba(${this.t.thread}, ${Math.min(0.85, 0.4 * f)})`;
-      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+      // the curve bends through the axis, so two neighbouring covers still draw a visible loop
+      const cy = axisY((a.u + b.u) / 2);
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.quadraticCurveTo(axisX, cy, b.sx, b.sy); ctx.stroke();
     }
 
     // threads of one artist
@@ -463,15 +476,29 @@ export class Scene {
     ctx.globalAlpha = 1;
   }
 
-  flag(x, y, text, bg, fg) {
+  flag(x, y, text, bg, fg, pointer = true) {
     const ctx = this.ctx;
     const size = Math.round(11 * Math.max(0.85, this.k));
+    if (!bg) {
+      // dark: no chip, just thin white text and a hairline to the ribbon
+      ctx.font = `300 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      ctx.strokeStyle = "rgba(242, 242, 242, 0.45)";
+      ctx.lineWidth = 0.6;
+      ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 2); ctx.stroke();
+      ctx.fillStyle = fg;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(text.toUpperCase().split("").join(String.fromCharCode(8202)), x, y + 4);
+      return;
+    }
     ctx.font = `700 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
     const w = ctx.measureText(text).width + 10;
     const h = size + 7;
     ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.moveTo(x - 4, y + 1); ctx.lineTo(x, y - 4); ctx.lineTo(x + 4, y + 1); ctx.fill();
+    if (pointer) {
+      ctx.beginPath();
+      ctx.moveTo(x - 4, y + 1); ctx.lineTo(x, y - 4); ctx.lineTo(x + 4, y + 1); ctx.fill();
+    }
     ctx.fillRect(x - w / 2, y, w, h);
     ctx.fillStyle = fg;
     ctx.textAlign = "center";
@@ -483,13 +510,21 @@ export class Scene {
     const ctx = this.ctx;
     const np = this.L.agg.nowPlaying;
     const k = this.k;
-    const s = (np ? 54 : 16) * k * Math.pow(this.zoom, 0.85);
+    const s = (np ? 54 : 0) * k * Math.pow(this.zoom, 0.85);
+    // the stem rises above the tallest cover near now, so the marker is never hidden
+    const near = this.tiles.filter((t) => t.u < 0.08).reduce((m, t) => Math.max(m, t.side), 0);
     const x = p[0];
-    const y = p[1] - s / 2 - 40 * k;
-    this.nowBox = [x - s / 2, y - s / 2, s, s];
+    const stemTop = p[1] - near - 34 * k;
+    const y = stemTop - s / 2;
+
+    // the end of the ribbon: a round cap, so it is clear where the spiral stops
+    ctx.fillStyle = `rgb(${RIBBON})`;
+    ctx.beginPath(); ctx.arc(p[0], p[1], 6.5 * k, 0, TAU); ctx.fill();
     ctx.strokeStyle = this.t.ink;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath(); ctx.moveTo(x, y + s / 2); ctx.lineTo(p[0], p[1]); ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(p[0], p[1], 6.5 * k, 0, TAU); ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, p[1] - 6.5 * k); ctx.lineTo(x, stemTop); ctx.stroke();
     if (np) {
       const pulse = animate ? 0.5 + 0.5 * Math.sin(time / 420) : 1;
       ctx.strokeStyle = `rgba(${RIBBON}, ${0.5 + 0.5 * pulse})`;
@@ -500,11 +535,11 @@ export class Scene {
       const img = this.cover(np.c || np.artist?.cover);
       if (img) ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
       else { ctx.fillStyle = COLORS[np.artist?.family] || COLORS.autre; ctx.fillRect(x - s / 2, y - s / 2, s, s); }
-      this.flag(x, y + s / 2 + 8, "EN CE MOMENT", "rgb(" + RIBBON + ")", "#111");
+      this.flag(x, y - s / 2 - 26 * k, "PLAYING NOW", "rgb(" + RIBBON + ")", "#111", false);
+      this.nowBox = [x - s / 2, y - s / 2, s, s];
     } else {
-      ctx.fillStyle = this.t.ink;
-      ctx.beginPath(); ctx.arc(x, y, 4 * k, 0, TAU); ctx.fill();
-      this.flag(x, y + 10, "maintenant", this.t.flagBg, this.t.flagFg);
+      this.flag(x, stemTop - 20 * k, "NOW", "rgb(" + RIBBON + ")", "#111", false);
+      this.nowBox = [x - 22 * k, stemTop - 20 * k, 44 * k, 20 * k];
     }
   }
 
@@ -662,11 +697,8 @@ export class Scene {
   drawSphere(time, animate) {
     const ctx = this.ctx;
     const k = this.k;
-    const strip = 22;
-    this.sphereS = Math.min(this.w, this.h - strip) * 0.46 * this.zoom;
-    this.sphereCy = (this.h - strip) / 2;
-    ctx.fillStyle = this.t.sphereBg[1];
-    ctx.fillRect(0, 0, this.w, this.h);
+    this.sphereS = Math.min(this.w, this.h * 0.92) * 0.44 * this.zoom;
+    this.sphereCy = this.h / 2 + 10;
     const t = animate ? time : 0;
     const g = this.graph;
     for (const node of g.nodes) node.s = this.sphereProject(node.p, t);
@@ -701,13 +733,13 @@ export class Scene {
         ctx.strokeStyle = rgba(COLORS[e.family] || COLORS.autre, (hl && !dim ? 0.9 : 0.5) * depth * dim);
       } else if (e.kind === "bridge") {
         ctx.lineWidth = hl && dim === 1 ? 0.9 : 0.5;
-        ctx.strokeStyle = `rgba(235, 235, 255, ${(hl && dim === 1 ? 0.7 : 0.22) * depth * dim})`;
+        ctx.strokeStyle = `rgba(${this.t.bridge}, ${(hl && dim === 1 ? 0.7 : 0.25) * depth * dim})`;
       } else if (e.kind === "long") {
         ctx.lineWidth = 0.5;
-        ctx.strokeStyle = `rgba(${EDGE}, ${0.3 * depth * dim})`;
+        ctx.strokeStyle = `rgba(${this.t.edge}, ${0.3 * depth * dim})`;
       } else {
         ctx.lineWidth = 0.8;
-        ctx.strokeStyle = hl && dim === 1 ? "rgba(255, 220, 220, 0.95)" : `rgba(${EDGE}, ${0.7 * depth * dim})`;
+        ctx.strokeStyle = hl && dim === 1 ? `rgba(${this.t.label}, 0.95)` : `rgba(${this.t.edge}, ${0.7 * depth * dim})`;
       }
       ctx.beginPath(); ctx.moveTo(e.a.s[0], e.a.s[1]); ctx.lineTo(e.b.s[0], e.b.s[1]); ctx.stroke();
     }
@@ -731,8 +763,8 @@ export class Scene {
       if (node.kind === "bridge") {
         const mine = hl && node.users.includes(hl);
         ctx.globalAlpha = hl && !mine ? 0.1 : front(node.s);
-        ctx.strokeStyle = "#ececff";
-        ctx.fillStyle = "#ececff";
+        ctx.strokeStyle = `rgb(${this.t.bridge})`;
+        ctx.fillStyle = `rgb(${this.t.bridge})`;
         ctx.lineWidth = 0.9;
         const r = (1.1 + 0.45 * Math.min(node.weight, 6)) * f;
         if (node.sub === "tag") { ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.fill(); }
@@ -745,7 +777,7 @@ export class Scene {
       ctx.fillStyle = color;
       if (node.kind === "track") ctx.fillRect(x - 1.7 * f, y - 1.7 * f, 3.4 * f, 3.4 * f);
       else if (node.kind === "play") ctx.fillRect(x - 0.9 * f, y - 0.9 * f, 1.8 * f, 1.8 * f);
-      else if (node.kind === "tag") { ctx.fillStyle = "#f4f4f4"; ctx.fillRect(x - 1 * f, y - 1 * f, 2 * f, 2 * f); }
+      else if (node.kind === "tag") { ctx.fillStyle = this.t.tagLeaf; ctx.fillRect(x - 1 * f, y - 1 * f, 2 * f, 2 * f); }
       else if (node.kind === "sim") {
         ctx.globalAlpha *= 0.55 + 0.45 * (node.m || 0.5);
         ctx.beginPath(); ctx.arc(x, y, 1.4 * f, 0, TAU); ctx.fill();
@@ -753,7 +785,7 @@ export class Scene {
         const r = (2.5 + 4 * Math.sqrt(node.artist.plays / this.L.agg.maxPlays)) * f * k;
         node.r = r;
         ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.strokeStyle = `rgba(${this.t.label}, 0.6)`;
         ctx.lineWidth = 0.7;
         ctx.beginPath(); ctx.arc(x, y, r + 2, 0, TAU); ctx.stroke();
       } else if (node.kind === "hub") {
@@ -775,7 +807,7 @@ export class Scene {
       }
     } else {
       ctx.font = font(400, 10, "italic");
-      ctx.fillStyle = "rgba(225, 225, 255, 0.85)";
+      ctx.fillStyle = `rgba(${this.t.label}, 0.8)`;
       for (const node of g.nodes) {
         const mine = (node.artist?.id === hl && (node.kind === "sim" || node.kind === "tag" || node.kind === "track"))
           || (node.kind === "bridge" && node.users.includes(hl));
@@ -785,7 +817,7 @@ export class Scene {
     const top = [...g.artistNodes.values()].sort((a, b) => b.artist.plays - a.artist.plays).slice(0, 8);
     for (const node of hl ? [g.artistNodes.get(hl)].filter(Boolean) : top) {
       ctx.font = font(hl ? 700 : 500, 11);
-      ctx.fillStyle = hl ? "#fff" : "rgba(255, 255, 255, 0.85)";
+      ctx.fillStyle = `rgba(${this.t.label}, ${hl ? 1 : 0.85})`;
       ctx.fillText(node.artist.name, node.s[0] + (node.r || 4) + 5, node.s[1]);
     }
 
@@ -793,7 +825,7 @@ export class Scene {
     const r0 = g.root.s;
     const np = this.L.agg.nowPlaying;
     const pulse = animate && np ? 0.5 + 0.5 * Math.sin(time / 420) : 0.6;
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = this.t.root;
     ctx.beginPath(); ctx.arc(r0[0], r0[1], 3, 0, TAU); ctx.fill();
     ctx.strokeStyle = `rgba(${RIBBON}, ${np ? 0.4 + 0.6 * pulse : 0.5})`;
     ctx.lineWidth = 1.5;
@@ -801,17 +833,16 @@ export class Scene {
     this.nowAt = r0;
     this.nowBox = [r0[0] - 12, r0[1] - 12, 24, 24];
 
-    // the status bar, like an old desktop graph viewer
-    ctx.fillStyle = this.t.strip;
-    ctx.fillRect(0, this.h - strip, this.w, strip);
-    ctx.fillStyle = this.t.stripInk;
-    ctx.font = `12px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    // the counts, as the status line of an old graph viewer: one quiet line at the bottom
+    ctx.fillStyle = `rgba(${this.t.label}, 0.55)`;
+    ctx.font = `11px "Helvetica Neue", Helvetica, Arial, sans-serif`;
     ctx.textAlign = "left";
+    const strip = 120;
     const agg = this.L.agg;
     ctx.fillText(
-      `Graphe chargé. ${this.L.sectors.length} styles · ${agg.artists.length} artistes · ${agg.scrobbles.length} écoutes · `
-      + `${g.nodes.length} nœuds · ${g.edges.length} liens · ${g.bridges.length} ponts · ${g.arcs.length} ressemblances`,
-      8, this.h - strip / 2 + 0.5,
+      `Graph loaded. ${this.L.sectors.length} styles · ${agg.artists.length} artists · ${agg.scrobbles.length} plays · `
+      + `${g.nodes.length} nodes · ${g.edges.length} links · ${g.bridges.length} bridges · ${g.arcs.length} look-alikes`,
+      Math.max(16, Math.min(48, this.w * 0.04)), this.h - 64,
     );
   }
 
@@ -864,14 +895,15 @@ export class Scene {
 
 // ---------- small helpers ----------
 
-const dayFmt = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric" });
-const monthFmt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
+const dayFmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric" });
+const monthFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
 
 function label(ts, period) {
   const d = new Date(ts * 1000);
   if (period < 86400) {
-    const m = d.getMinutes();
-    return m ? `${d.getHours()} h ${String(m).padStart(2, "0")}` : `${d.getHours()} h`;
+    // a turn that starts at midnight says which day; the others say the time
+    if (d.getHours() === 0 && d.getMinutes() === 0) return dayFmt.format(d);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
   if (period === 86400) return dayFmt.format(d);
   return monthFmt.format(d);

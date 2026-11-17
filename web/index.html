@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>La carte de mes écoutes</title>
-  <meta name="description" content="Mes dernières écoutes Last.fm, dessinées comme une carte.">
+  <title>The map of my plays</title>
+  <meta name="description" content="My recent Last.fm plays, drawn as a time spiral and a network sphere.">
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/style.css">
   <script type="module" src="/main.js"></script>
@@ -12,32 +12,32 @@
 <body>
   <header class="top">
     <div class="controls">
-      <div class="range" role="group" aria-label="Vue">
-        <button type="button" data-view="spiral" aria-pressed="true">Spirale</button>
-        <button type="button" data-view="sphere" aria-pressed="false">Sphère</button>
-        <button type="button" id="theme" aria-pressed="false">Sombre</button>
+      <div class="range" role="group" aria-label="View">
+        <button type="button" data-view="spiral" aria-pressed="true">Spiral</button>
+        <button type="button" data-view="sphere" aria-pressed="false">Sphere</button>
+        <button type="button" id="theme" aria-pressed="false">Dark</button>
       </div>
-      <div class="range" role="group" aria-label="Période affichée">
+      <div class="range" role="group" aria-label="Period shown">
         <button type="button" data-range="h3" aria-pressed="false">3 h</button>
         <button type="button" data-range="day" aria-pressed="false">24 h</button>
-        <button type="button" data-range="week" aria-pressed="true">7 jours</button>
-        <button type="button" data-range="all" aria-pressed="false">Tout</button>
+        <button type="button" data-range="week" aria-pressed="true">7 days</button>
+        <button type="button" data-range="all" aria-pressed="false">All</button>
       </div>
     </div>
     <div class="title">
-      <h1 class="t-line t-main">La carte de mes écoutes</h1>
+      <h1 class="t-line t-main">The map of my plays</h1>
       <p class="t-line">Last.fm</p>
       <p class="t-line" id="title-user">…</p>
-      <p class="t-line t-range" id="title-range">Les 7 derniers jours</p>
-      <p class="t-small" id="status" role="status" aria-live="polite">Chargement des écoutes…</p>
+      <p class="t-line t-range" id="title-range">The last 7 days</p>
+      <p class="t-small" id="status" role="status" aria-live="polite">Loading plays…</p>
       <p class="t-small t-key" id="key"></p>
     </div>
   </header>
 
   <main>
-    <section class="stage is-spiral" id="stage" aria-label="Carte des écoutes">
+    <section class="stage is-spiral" id="stage" aria-label="Map of my plays">
       <canvas id="map" tabindex="0"
-        aria-label="Les écoutes, en spirale du temps ou en réseau. Les flèches déplacent la vue, Maj + flèches la font tourner, + et − zooment, 0 revient à la vue d’ensemble. La même information est dans la liste plus bas."></canvas>
+        aria-label="My plays, as a time spiral or a network. Arrow keys move the view, Shift + arrows turn it, + and − zoom, 0 goes back to the overview. The same information is in the list below."></canvas>
 
       <div class="message" id="message" hidden>
         <h2 id="message-title"></h2>
@@ -54,39 +54,39 @@
           <p class="card-line muted" id="card-line2"></p>
           <p class="card-style" id="card-style"></p>
         </div>
-        <button type="button" class="card-close" id="card-close" aria-label="Fermer la fiche">×</button>
+        <button type="button" class="card-close" id="card-close" aria-label="Close the card">×</button>
       </article>
 
       <div class="zoom" role="group" aria-label="Zoom">
-        <button type="button" id="turn-left" aria-label="Tourner vers la gauche">⟲</button>
-        <button type="button" id="turn-right" aria-label="Tourner vers la droite">⟳</button>
-        <button type="button" id="zoom-in" aria-label="Zoomer">+</button>
-        <button type="button" id="zoom-out" aria-label="Dézoomer">−</button>
-        <button type="button" id="zoom-reset" class="wide">Vue d'ensemble</button>
+        <button type="button" id="turn-left" aria-label="Turn left">⟲</button>
+        <button type="button" id="turn-right" aria-label="Turn right">⟳</button>
+        <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+        <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+        <button type="button" id="zoom-reset" class="wide">Overview</button>
       </div>
-      <p class="zoom-hint" id="zoom-hint" hidden>Ctrl + molette pour zoomer</p>
+      <p class="zoom-hint" id="zoom-hint" hidden>Ctrl + wheel to zoom</p>
 
-      <p class="hint" id="hint">Glisse pour faire tourner. Survole une pochette.</p>
+      <p class="hint" id="hint">Drag to move. Hover a cover.</p>
     </section>
 
-    <nav class="legend" id="legend" aria-label="Styles : clique pour isoler une région"></nav>
+    <nav class="legend" id="legend" aria-label="Styles: click one to isolate it"></nav>
 
     <section class="tape-section" aria-labelledby="tape-title">
-      <h2 id="tape-title">Dernières écoutes</h2>
+      <h2 id="tape-title">Last plays</h2>
       <ol class="board" id="tape"></ol>
     </section>
 
     <details class="table-view">
       <summary>Voir les artistes en liste</summary>
       <table>
-        <thead><tr><th scope="col">Artiste</th><th scope="col">Style</th><th scope="col" class="num">Écoutes</th><th scope="col">Dernière écoute</th></tr></thead>
+        <thead><tr><th scope="col">Artist</th><th scope="col">Style</th><th scope="col" class="num">Plays</th><th scope="col">Last played</th></tr></thead>
         <tbody id="table"></tbody>
       </table>
     </details>
   </main>
 
   <footer class="foot">
-    <p>Données de <span id="foot-user">Last.fm</span>, lues par mon serveur et gardées en cache. Le navigateur ne parle qu'à ce serveur.</p>
+    <p>Data from <span id="foot-user">Last.fm</span>, read by my server and kept in a cache. The browser only talks to this server.</p>
   </footer>
 </body>
 </html>

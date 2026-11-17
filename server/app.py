@@ -86,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
             pass
         except Exception:
             log.exception("unexpected error")
-            self.send_json(500, {"error": "server_error", "message": "Erreur du serveur."})
+            self.send_json(500, {"error": "server_error", "message": "Server error."})
 
     # ---------- API ----------
 
@@ -96,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
         except Unavailable:
             self.send_json(503, {
                 "error": "lastfm_unreachable",
-                "message": "Aucune écoute n'a encore pu être reçue.",
+                "message": "No plays could be received yet.",
                 "retry_in": self.service.retry_after,
             }, extra={"X-Cache": "miss"})
             return

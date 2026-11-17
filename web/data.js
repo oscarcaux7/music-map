@@ -13,7 +13,7 @@ export async function fetchMap() {
   try {
     response = await fetch("/api/map", { cache: "no-store" });
   } catch {
-    throw new LoadError("network", "Le serveur de la carte ne répond pas.");
+    throw new LoadError("network", "The map server does not answer.");
   }
   let body = null;
   try { body = await response.json(); } catch { /* not JSON: handled below */ }
@@ -21,7 +21,7 @@ export async function fetchMap() {
     if (response.status === 503 && body) {
       throw new LoadError("lastfm", body.message, body.retry_in || 30);
     }
-    throw new LoadError("network", `Le serveur a répondu avec une erreur (${response.status}).`);
+    throw new LoadError("network", `The server answered with an error (${response.status}).`);
   }
   return body;
 }
@@ -85,16 +85,16 @@ export function aggregate(data, range) {
 
 // ---------- words ----------
 
-const timeFmt = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
-const dayFmt = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+const dayFmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 export function ago(seconds) {
   const s = Math.max(0, Math.round(seconds));
-  if (s < 60) return "à l'instant";
-  if (s < 3600) return `il y a ${Math.round(s / 60)} min`;
-  if (s < 86400) return `il y a ${Math.round(s / 3600)} h`;
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
   const days = Math.round(s / 86400);
-  return `il y a ${days} jour${days > 1 ? "s" : ""}`;
+  return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
 export function clock(ts, now) {
@@ -102,10 +102,10 @@ export function clock(ts, now) {
   const today = new Date(now * 1000);
   if (date.toDateString() === today.toDateString()) return timeFmt.format(date);
   const yesterday = new Date((now - 86400) * 1000);
-  if (date.toDateString() === yesterday.toDateString()) return `hier, ${timeFmt.format(date)}`;
+  if (date.toDateString() === yesterday.toDateString()) return `yesterday, ${timeFmt.format(date)}`;
   return dayFmt.format(date);
 }
 
 export function plays(n) {
-  return `${n} écoute${n > 1 ? "s" : ""}`;
+  return `${n} play${n > 1 ? "s" : ""}`;
 }

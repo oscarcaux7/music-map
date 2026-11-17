@@ -11,14 +11,13 @@ Inspirations : l'affiche « Interaktionsgestaltung » de la HfG Schwäbisch Gmü
 | Ce qu'on voit | Ce que ça veut dire | Où c'est calculé |
 |---|---|---|
 | un tour de ruban | une demi-heure (3 h), 4 heures (24 h) ou un jour (7 jours) | `buildSpiral` dans `web/scene.js` |
-| hauteur sur la spirale | il y a combien de temps : le plus récent en haut | `spiralPoint` dans `web/scene.js` |
+| hauteur sur la spirale | il y a combien de temps : le ruban commence à maintenant (le bout en haut, avec un rond et `NOW`) et descend vers le passé | `spiralPoint` dans `web/scene.js` |
 | pochette | une écoute ; plus l'artiste est écouté, plus elle est grande | `drawSpiral` dans `web/scene.js` |
-| drapeau noir | début d'un tour (`mar. 17`, `14 h 30`) | `marks` dans `buildSpiral` |
+| drapeau | début d'un tour (`Tue 17`, `14:30`) ; dans « All », la durée d'un tour s'adapte pour étaler les écoutes sur environ 8 tours | `marks` dans `buildSpiral` |
 | fils verticaux | de chaque pochette au tour du dessous, comme sur l'affiche | `drawSpiral` |
 | faisceaux qui se croisent au centre | les écoutes d'un même style, tirées vers un point de l'axe | `foci` dans `buildSpiral` |
-| fils entre pochettes | deux écoutes d'artistes qui partagent des tags Last.fm (3 par écoute) | `corr` dans `buildSpiral` |
-| grandes boucles vides en haut | le temps à venir, encore vide | `spiralPoint` (u < 0) |
-| cadre qui pulse en haut | ce qui joue maintenant (`nowplaying`) | `drawNowSpiral` |
+| courbes entre pochettes | deux écoutes d'artistes qui partagent des tags Last.fm (3 par écoute) ; la courbe passe par l'axe, pour rester visible même entre deux pochettes voisines | `corr` dans `buildSpiral` |
+| rond au bout du ruban, `NOW` | maintenant ; avec la pochette qui joue (`nowplaying`), si une chanson joue | `drawNowSpiral` |
 
 ## Comment lire la sphère
 
