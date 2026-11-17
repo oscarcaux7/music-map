@@ -1,0 +1,12 @@
+# secrets: never in Git
+.env
+
+# Python
+__pycache__/
+.pytest_cache/
+
+# local cache when the server runs outside Docker
+data/
+
+# local editor and preview settings
+.claude/
