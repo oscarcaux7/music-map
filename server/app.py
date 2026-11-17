@@ -88,6 +88,9 @@ class Handler(BaseHTTPRequestHandler):
             log.exception("unexpected error")
             self.send_json(500, {"error": "server_error", "message": "Server error."})
 
+    def do_HEAD(self):
+        self.do_GET()
+
     # ---------- API ----------
 
     def api_map(self):
@@ -178,7 +181,8 @@ class Handler(BaseHTTPRequestHandler):
         for name, value in {**SECURITY_HEADERS, **headers}.items():
             self.send_header(name, value)
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":   # HEAD (curl -I): the same headers as GET, without the body
+            self.wfile.write(body)
 
 
 def main():
