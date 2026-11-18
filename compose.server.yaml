@@ -1,30 +1,19 @@
 # On the server only, on top of compose.yaml:
 #   docker compose -f compose.yaml -f compose.server.yaml up -d --build
 #
-# The app publishes no port any more: only Caddy faces the internet, on 80 and 443.
-# Caddy gets and renews the HTTPS certificate by itself, and keeps it in a volume.
-# The address of the site comes from SITE_ADDRESS in .env (see .env.example), so the
-# same files run on any machine.
+# The app publishes no port: it joins the Docker network "web", where the shared Caddy
+# (repo oscarcaux7/server-proxy) finds it under the name "music-map" and serves it on
+# 80 and 443 with HTTPS. Caddy is not in this project, so updating this app never
+# restarts it, nor the other apps behind it.
 services:
   app:
     ports: !reset []
     restart: unless-stopped
+    networks:
+      web:
+        aliases:
+          - music-map
 
-  caddy:
-    image: caddy:2.11-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:-student02.wt.thomasjuldo.com}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data       # the certificates: kept across restarts
-      - caddy-config:/config
-    depends_on:
-      - app
-
-volumes:
-  caddy-data:
-  caddy-config:
+networks:
+  web:
+    external: true   # created once on the server: docker network create web
