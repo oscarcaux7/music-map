@@ -52,32 +52,34 @@ docker compose up --build
 
 ## Online
 
-The site runs on my practice server (Ubuntu, Docker), at https://student02.wt.thomasjuldo.com.
+The site runs on my practice server (Ubuntu, Docker), at https://student02.wt.thomasjuldo.com, next to my other project [visit-counter](https://github.com/oscarcaux7/visit-counter) (at `/visits/`). One Caddy, in its own repo [server-proxy](https://github.com/oscarcaux7/server-proxy), serves both.
 
 ```
-internet ──► Caddy (ports 80 and 443, HTTPS certificate) ──► app (port 8000, not published) ──► Last.fm
+internet ──► Caddy (server-proxy, ports 80 and 443, HTTPS) ──┬──► music-map app (port 8000, not published) ──► Last.fm
+                         Docker network "web"                └──► visit-counter (/visits/)
 ```
 
-- `compose.server.yaml` is added on top of `compose.yaml` on the server only: the app publishes no port, Caddy is the only service facing the internet, both restart by themselves (`restart: unless-stopped`), and Caddy keeps its certificates in a volume.
-- `Caddyfile` sends every request to the app. The address comes from `SITE_ADDRESS` in `.env`.
+- `compose.server.yaml` is added on top of `compose.yaml` on the server only: the app publishes no port, joins the Docker network `web` under the name `music-map`, and restarts by itself (`restart: unless-stopped`).
+- Caddy is not in this repo, so updating music-map never restarts Caddy or the other app.
 - The key is only in `.env` on the server, written by hand, never in Git.
 
-Start it on the server (the first time):
+Start it on the server (the first time; `server-proxy`'s README covers the whole server):
 
 ```bash
+docker network create web          # once per server, if it does not exist yet
 git clone https://github.com/oscarcaux7/music-map.git
 cd music-map
-nano .env            # LASTFM_API_KEY, LASTFM_USER, SITE_ADDRESS (see .env.example)
+cp .env.example .env && nano .env  # LASTFM_API_KEY, LASTFM_USER
 docker compose -f compose.yaml -f compose.server.yaml up -d --build
 ```
 
 **How a change goes online:** I change the code on my laptop, commit and push to GitHub; then on the server:
 
 ```bash
-cd music-map && git pull && docker compose -f compose.yaml -f compose.server.yaml up -d --build
+cd ~/music-map && git pull && docker compose -f compose.yaml -f compose.server.yaml up -d --build
 ```
 
-**If the server goes down,** the same commands run on any machine with Docker: clone, write `.env`, start. Nothing else needs saving: Last.fm is the source of the data, and the volume only holds a cache (the last answer, the styles, the covers) and Caddy's certificates, which come back by themselves. With a domain pointing to the new machine, put it in `SITE_ADDRESS` and Caddy gets a new certificate; without one, `SITE_ADDRESS=:80` serves the site in plain HTTP on the machine's address. On a laptop, `docker compose up` alone is enough (http://localhost:8080).
+**If the server goes down,** follow "Rebuild everything" in server-proxy's README: create the network, clone the three repos, write the `.env` files, start them. Nothing else needs saving: Last.fm is the source of the data, and the volume only holds a cache (the last answer, the styles, the covers). On a laptop, `docker compose up` alone is enough (http://localhost:8080).
 
 **After a scrobble** (FastScrobbler, Spotify, any app connected to Last.fm): the app sends the song to Last.fm, my server asks Last.fm again once its cache is older than `RECENT_TTL` (60 s), and the page asks my server every minute, and as soon as I come back to it. So a new song shows within about a minute, and the song playing now shows at the top of the spiral. There is no database of my own to update: Last.fm is the database, my server only keeps a copy for a short time.
 
